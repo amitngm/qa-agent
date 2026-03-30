@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Run history{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Run history</h1>
+  <p class="lead">Recent runs from configured storage. Rows link to status and report views.</p>
+
+  {% if empty_reason %}
+  <div class="callout callout-muted">
+    <p>{{ empty_reason }}</p>
+  </div>
+  {% endif %}
+
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Run ID</th>
+          <th>Flow</th>
+          <th>Status</th>
+          <th>Started</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><code class="truncate">{{ row.run_id }}</code></td>
+          <td>{{ row.flow }}</td>
+          <td><span class="badge badge-{{ row.status }}">{{ row.status }}</span></td>
+          <td>{{ row.started_at }}</td>
+          <td class="nowrap">
+            <a href="/ui/runs/{{ row.run_id }}/status">Status</a>
+            ·
+            <a href="/ui/runs/{{ row.run_id }}/report">Report</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif not empty_reason %}
+  <p class="empty">No runs found.</p>
+  {% endif %}
+
+  <p class="actions-inline">
+    <a class="button" href="/ui/run">Run QA</a>
+  </p>
+</section>
+{% endblock %}

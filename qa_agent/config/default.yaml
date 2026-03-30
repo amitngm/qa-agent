@@ -1,0 +1,87 @@
+# Default QA agent configuration — override via QA_AGENT_CONFIG_PATH or env-specific files.
+
+environment: local
+
+# Optional filesystem root for FileRunStore + prior run digests (null = in-memory store only).
+runs_storage_root: null
+
+# Orchestrator pipeline stage order (see qa_agent.config.settings.PIPELINE_STAGE_KEYS).
+pipeline_order:
+  - planner
+  - discovery
+  - execution
+  - ui_automation
+  - auto_explore_ui
+  - step_assertions
+  - flow_assertions
+  - api_validation
+  - data_validation
+  - security_validation
+  - analysis
+  - reporting
+  - report_sink
+
+suite:
+  suite_id: default
+  suite_version: 1.0.0
+  # Sample generic flow (Login → Search → Create → Verify → Edit → Verify → Delete → Verify); see flows.sample_generic_crud.
+  flow_keys:
+    - generic_crud_lifecycle
+  metadata: {}
+
+orchestration:
+  stop_on_first_failure: false
+  default_step_failure_mode: continue
+  cleanup_layer_keys:
+    - reporting
+    - report_sink
+
+flow_engine:
+  skip_execute_after_precheck_failure: true
+  skip_validate_after_execute_failure: true
+  skip_evidence_after_execute_failure: false
+  capture_evidence_after_validate_failure: true
+
+layers:
+  planner:
+    enabled: true
+  discovery:
+    enabled: true
+  execution:
+    enabled: true
+  step_assertions:
+    enabled: true
+  flow_assertions:
+    enabled: true
+  analysis:
+    enabled: true
+  reporting:
+    enabled: true
+
+plugins:
+  ui_automation:
+    enabled: false
+    browser: chromium
+    headless: true
+    steps: []
+  auto_explore_ui:
+    enabled: false
+    browser: chromium
+  api_validation:
+    enabled: false
+    base_url: ""
+    default_timeout_seconds: 30
+    verify_tls: true
+    cases: []
+  data_validation:
+    enabled: false
+    connections: {}
+    cases: []
+  security_validation:
+    enabled: false
+    base_url: ""
+    default_timeout_seconds: 30
+    verify_tls: true
+    cases: []
+  reporting_sink:
+    format: structured

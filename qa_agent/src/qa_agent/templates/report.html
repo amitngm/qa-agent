@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Report · {{ run_id }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Report</h1>
+
+  {% if error %}
+  <div class="callout callout-error" role="alert">
+    <p>{{ error }}</p>
+  </div>
+  <p class="actions-inline">
+    <a class="button" href="/ui/run">Run QA</a>
+    <a class="button button-secondary" href="/ui/runs/{{ run_id }}/status">Run status</a>
+    <a class="button button-secondary" href="/ui/history">History</a>
+  </p>
+  {% endif %}
+
+  {% if report %}
+  <p class="meta-line">Run <code>{{ run_id }}</code></p>
+
+  <h2>Summary</h2>
+  <dl class="kv">
+    <dt>Overall status</dt>
+    <dd><span class="badge badge-{{ report.run.status }}">{{ report.run.status }}</span></dd>
+    <dt>Severity</dt>
+    <dd><code>{{ report.severity }}</code></dd>
+    <dt>Verdict</dt>
+    <dd>
+      {% set v = report.conclusion.verdict %}
+      <span class="badge verdict-{{ v }}">{{ v }}</span>
+    </dd>
+    <dt>Message</dt>
+    <dd>{{ report.conclusion.message }}</dd>
+    <dt>Steps</dt>
+    <dd>
+      {{ report.conclusion.total_step_count }} total
+      · failed {{ report.conclusion.failed_step_count }}
+      · skipped {{ report.conclusion.skipped_step_count }}
+    </dd>
+    <dt>Generated</dt>
+    <dd>{{ report.generated_at | fmt_dt }}</dd>
+  </dl>
+
+  {% if timing %}
+  <h2>Timing</h2>
+  <dl class="kv">
+    <dt>Wall time</dt>
+    <dd>{% if timing.wall_seconds is not none %}{{ timing.wall_seconds }} s{% else %}—{% endif %}</dd>
+    <dt>Sum of step durations</dt>
+    <dd>{% if timing.step_duration_ms_total is not none %}{{ timing.step_duration_ms_total }} ms{% else %}—{% endif %}</dd>
+  </dl>
+  {% if timing.step_rows %}
+  <div class="table-wrap">
+    <table class="table table-compact">
+      <thead>
+        <tr><th>#</th><th>Layer</th><th>Name</th><th>Duration (ms)</th></tr>
+      </thead>
+      <tbody>
+        {% for r in timing.step_rows %}
+        <tr>
+          <td>{{ r.index }}</td>
+          <td><code>{{ r.layer }}</code></td>
+          <td>{{ r.name }}</td>
+          <td>{% if r.duration_ms is not none %}{{ r.duration_ms }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <h2>Technical classifications</h2>
+  {% if report.technical_failure_taxonomy %}
+  <ul class="list-compact">
+    {% for row in report.technical_failure_taxonomy %}
+    <li><pre class="json-snippet">{{ row | tojson(indent=2) }}</pre></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No technical taxonomy rows (empty or all passing).</p>
+  {% endif %}
+
+  <h2>Stakeholder classifications</h2>
+  {% if report.stakeholder_failure_summary %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Category</th><th>Label</th><th>Count</th><th>Technical taxonomies</th></tr>
+      </thead>
+      <tbody>
+        {% for g in report.stakeholder_failure_summary %}
+        <tr>
+          <td>{{ g.stakeholder_category }}</td>
+          <td>{{ g.stakeholder_label }}</td>
+          <td>{{ g.count }}</td>
+          <td>{{ g.technical_taxonomies | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No stakeholder failure groups.</p>
+  {% endif %}
+
+  <h2>Steps</h2>
+  {% if report.steps %}
+  <div class="table-wrap">
+    <table class="table table-steps">
+      <thead>
+        <tr>
+          <th>#</th><th>Layer</th><th>Name</th><th>Status</th><th>Pass/fail</th>
+          <th>Duration (ms)</th><th>Failure category</th><th>Errors</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in report.steps %}
+        <tr>
+          <td>{{ s.index }}</td>
+          <td><code>{{ s.layer }}</code></td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.status }}</td>
+          <td>{{ s.pass_fail }}</td>
+          <td>{% if s.duration_ms is not none %}{{ s.duration_ms }}{% else %}—{% endif %}</td>
+          <td>{{ s.failure_category or '—' }}</td>
+          <td class="errors">{% if s.errors %}{{ s.errors | join('; ') }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No steps in report.</p>
+  {% endif %}
+
+  <h2>Evidence</h2>
+  {% if report.evidence %}
+  <ul class="list-evidence">
+    {% for e in report.evidence %}
+    <li>
+      {% if e.ref and (e.ref.startswith('http://') or e.ref.startswith('https://')) %}
+      <a class="evidence-link" href="{{ e.ref }}" target="_blank" rel="noopener noreferrer">{{ e.ref }}</a>
+      {% else %}
+      <code>{{ e.ref }}</code>
+      {% endif %}
+      <span class="muted">· {{ e.kind }}</span>
+      {% if e.source %}<span class="muted">· {{ e.source }}</span>{% endif %}
+      {% if e.flow_key %}<span class="muted">· flow <code>{{ e.flow_key }}</code></span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No evidence items.</p>
+  {% endif %}
+
+  {% if report.flows %}
+  <h2>Flows</h2>
+  <ul class="list-compact">
+    {% for f in report.flows %}
+    <li><code>{{ f.flow_key }}</code> — {% if f.ok %}ok{% else %}not ok{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p class="actions-inline">
+    <a class="button button-secondary" href="/ui/runs/{{ run_id }}/status">Run status</a>
+    <a class="button button-secondary" href="/ui/history">History</a>
+  </p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Run QA{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Run QA</h1>
+  <p class="lead">Choose <strong>Known flow</strong> (orchestrated flow keys) or <strong>Auto explore</strong> (generic URL login + safe link walk).</p>
+
+  {% if form_error %}
+  <div class="callout callout-error" role="alert">
+    <strong>Could not start run.</strong>
+    <p>{{ form_error }}</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/ui/run" class="form">
+    <fieldset class="fieldset-compact">
+      <legend>Run mode</legend>
+      <label class="inline-label">
+        <input type="radio" name="run_mode" value="known_flow" {% if not form_values or form_values.run_mode != 'auto_explore' %}checked{% endif %}>
+        Known flow
+      </label>
+      <label class="inline-label">
+        <input type="radio" name="run_mode" value="auto_explore" {% if form_values and form_values.run_mode == 'auto_explore' %}checked{% endif %}>
+        Auto explore
+      </label>
+    </fieldset>
+
+    <h2 class="form-section-title">Known flow</h2>
+    <p class="hint">Used when <em>Known flow</em> is selected. Maps to run metadata and configured flow keys.</p>
+    <label>Application
+      <input name="application" type="text" placeholder="e.g. my-service" autocomplete="off" value="{{ form_values.application if form_values else '' }}">
+    </label>
+    <label>Environment
+      <input name="environment" type="text" value="{{ form_values.environment if form_values else default_environment }}" placeholder="e.g. local" autocomplete="off">
+    </label>
+    <label>Flow
+      <select name="flow">
+        <option value="generic_crud_lifecycle" {% if not form_values or form_values.flow == 'generic_crud_lifecycle' %}selected{% endif %}>generic_crud_lifecycle — sample CRUD lifecycle</option>
+        <option value="linear_two_step" {% if form_values and form_values.flow == 'linear_two_step' %}selected{% endif %}>linear_two_step — two-step sample</option>
+        <option value="noop" {% if form_values and form_values.flow == 'noop' %}selected{% endif %}>noop — no-op sample</option>
+        <option value="" {% if form_values and form_values.flow == '' %}selected{% endif %}>Suite default only ({{ suite_flow_keys | join(', ') }})</option>
+      </select>
+    </label>
+    <label>Run type
+      <input name="run_type" type="text" placeholder="e.g. smoke, regression" autocomplete="off" value="{{ form_values.run_type if form_values else '' }}">
+    </label>
+    <label>Role profile
+      <input name="role_profile" type="text" placeholder="optional label" autocomplete="off" value="{{ form_values.role_profile if form_values else '' }}">
+    </label>
+
+    <h2 class="form-section-title">Auto explore</h2>
+    <p class="hint">Used when <em>Auto explore</em> is selected. Runs <code>noop</code> flow execution plus the <code>auto_explore_ui</code> plugin (Playwright). Password is kept in memory for the run only and is not written to <code>meta.json</code>.</p>
+    <p class="hint">If you enter a <strong>Target URL</strong> starting with <code>http://</code> or <code>https://</code> but leave <em>Known flow</em> selected, the server still runs <strong>Auto explore</strong> so Playwright is not skipped by mistake.</p>
+    <label>Target URL
+      <input name="target_url" type="url" placeholder="https://example.com/login" autocomplete="off" value="{{ form_values.target_url if form_values else '' }}">
+    </label>
+    <label>Username
+      <input name="username" type="text" autocomplete="username" value="{{ form_values.username if form_values else '' }}">
+    </label>
+    <label>Password
+      <input name="password" type="password" autocomplete="current-password" value="">
+    </label>
+    <label>Login strategy
+      <select name="login_strategy">
+        <option value="auto_detect" {% if not form_values or form_values.login_strategy != 'manual_hints' %}selected{% endif %}>auto_detect</option>
+        <option value="manual_hints" {% if form_values and form_values.login_strategy == 'manual_hints' %}selected{% endif %}>manual_hints</option>
+      </select>
+    </label>
+    <p class="hint">With <code>manual_hints</code>, set <strong>both</strong> username and password CSS selectors below, or leave them empty to run the same auto heuristics as <code>auto_detect</code>.</p>
+    <label>Max pages
+      <input name="max_pages" type="number" min="1" max="50" value="{{ form_values.max_pages if form_values else 10 }}">
+    </label>
+    <label>Safe mode
+      <select name="safe_mode">
+        <option value="true" {% if not form_values or form_values.safe_mode in (None, 'true', '1') %}selected{% endif %}>On (default) — skip risky link labels</option>
+        <option value="false" {% if form_values and form_values.safe_mode == 'false' %}selected{% endif %}>Off — allow more navigation (use with care)</option>
+      </select>
+    </label>
+    <label>Headless browser
+      <select name="headless">
+        <option value="true" {% if not form_values or form_values.headless in (None, 'true', '1') %}selected{% endif %}>Yes</option>
+        <option value="false" {% if form_values and form_values.headless == 'false' %}selected{% endif %}>No (show browser)</option>
+      </select>
+    </label>
+    <p class="hint">Optional selectors (for <code>manual_hints</code> or to override success detection):</p>
+    <label>Username selector
+      <input name="username_selector" type="text" placeholder="CSS, e.g. #user" value="{{ form_values.username_selector if form_values else '' }}">
+    </label>
+    <label>Password selector
+      <input name="password_selector" type="text" placeholder="CSS" value="{{ form_values.password_selector if form_values else '' }}">
+    </label>
+    <label>Login button selector
+      <input name="login_button_selector" type="text" placeholder="CSS" value="{{ form_values.login_button_selector if form_values else '' }}">
+    </label>
+    <label>Success marker
+      <input name="success_marker" type="text" placeholder="CSS for element visible after login" value="{{ form_values.success_marker if form_values else '' }}">
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="button">Run QA</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
