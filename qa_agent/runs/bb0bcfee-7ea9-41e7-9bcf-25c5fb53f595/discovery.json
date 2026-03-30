@@ -1,0 +1,11 @@
+{
+  "discoverer_id": "DefaultDiscovery",
+  "plan_reference_id": "3af9cb82-54b1-4b81-97d0-323d49a4d062",
+  "produced_at": "2026-03-30T18:10:54.324165Z",
+  "targets": [],
+  "sources": [],
+  "detail": {
+    "placeholder": true,
+    "boundary": "live_discoverer"
+  }
+}

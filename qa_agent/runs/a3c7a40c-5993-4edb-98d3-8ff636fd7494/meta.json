@@ -1,0 +1,38 @@
+{
+  "run_id": "a3c7a40c-5993-4edb-98d3-8ff636fd7494",
+  "started_at": "2026-03-30T18:36:44.075086+00:00",
+  "metadata": {
+    "environment": "local",
+    "planner": null,
+    "discovery_report": null,
+    "executor": {
+      "execution": null,
+      "flow_engine_results": [],
+      "flow_keys": [
+        "noop"
+      ],
+      "ui_automation": null,
+      "auto_explore_ui": null
+    },
+    "validator": null,
+    "analysis": null,
+    "reporter": null,
+    "extensions": {
+      "run_mode": "auto_explore",
+      "auto_explore": {
+        "target_url": "https://n1devcmp-user.airteldev.com/project/overview",
+        "username": "testapi",
+        "login_strategy": "auto_detect",
+        "max_pages": 50,
+        "safe_mode": true,
+        "headless": false,
+        "explore_mode": "full",
+        "selected_features": [],
+        "username_selector": null,
+        "password_selector": null,
+        "login_button_selector": null,
+        "success_marker": null
+      }
+    }
+  }
+}

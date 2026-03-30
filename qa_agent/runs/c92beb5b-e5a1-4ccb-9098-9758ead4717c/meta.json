@@ -1,0 +1,37 @@
+{
+  "run_id": "c92beb5b-e5a1-4ccb-9098-9758ead4717c",
+  "started_at": "2026-03-30T17:16:06.324662+00:00",
+  "metadata": {
+    "environment": "local",
+    "planner": null,
+    "discovery_report": null,
+    "executor": {
+      "execution": null,
+      "flow_engine_results": [],
+      "flow_keys": [
+        "noop"
+      ],
+      "ui_automation": null,
+      "auto_explore_ui": null
+    },
+    "validator": null,
+    "analysis": null,
+    "reporter": null,
+    "extensions": {
+      "application": "coredge",
+      "run_mode": "auto_explore",
+      "auto_explore": {
+        "target_url": "https://console-dev.coredge.internal",
+        "username": "qauser2494@yopmail.com",
+        "login_strategy": "manual_hints",
+        "max_pages": 10,
+        "safe_mode": true,
+        "headless": false,
+        "username_selector": null,
+        "password_selector": null,
+        "login_button_selector": null,
+        "success_marker": null
+      }
+    }
+  }
+}
