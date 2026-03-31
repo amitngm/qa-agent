@@ -67,6 +67,11 @@ plugins:
   auto_explore_ui:
     enabled: false
     browser: chromium
+    # Optional tuning (see plugins.auto_explore_ui merged with request + application profile).
+    per_page_timeout_ms: 45000
+    post_visit_settle_ms: 800
+    post_login_extra_wait_ms: 0
+    headed_pause_ms: 0
   api_validation:
     enabled: false
     base_url: ""

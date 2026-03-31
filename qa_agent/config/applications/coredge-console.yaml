@@ -1,0 +1,53 @@
+application: coredge-console
+# Quote URLs so ':' in https:// is not parsed as a nested YAML mapping.
+base_url: "https://console-dev.coredge.internal"
+
+login:
+  strategy: auto_detect
+  success_marker: /project/overview
+
+navigation:
+  mode: href_driven
+  route_prefixes:
+    - /compute
+    - /storage
+    - /networking
+    - /security
+    - /managed-databases
+    - /monitoring
+    - /users
+    - /quota-service
+
+safe_mode: true
+
+feature_keywords:
+  VM:
+    - /compute/virtual-machines
+  Snapshot:
+    - /compute/snapshots
+  Kubernetes:
+    - /compute/kubernetes-clusters
+  Volume:
+    - /storage/volumes
+  Volume Snapshot:
+    - /storage/volume-snapshots
+  Object Storage:
+    - /storage/object-storage
+  File System:
+    - /storage/file-system
+  VPC:
+    - /networking/vpcs
+  Security Group:
+    - /networking/security-groups
+  Load Balancer:
+    - /networking/load-balancers
+  NAT Gateway:
+    - /security/nat-gateway
+  Monitoring:
+    - /monitoring/monitoring-dashboard
+  Metering:
+    - /metering
+  Quota:
+    - /quota-service/project-quota
+  User Management:
+    - /users/cell-users

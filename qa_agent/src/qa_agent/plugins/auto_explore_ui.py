@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import deque
-from typing import Any, List, Mapping, MutableMapping, Optional, Set
-from urllib.parse import urlparse, urljoin
+from typing import Any, List, Mapping, MutableMapping, Optional
+from urllib.parse import urlparse
 
 from qa_agent.core.types import RunContext, StepResult, StepStatus
 from qa_agent.platform.auto_explore_models import (
     AutoExploreSummary,
+    FeatureExploreResult,
     LoginDetectionResult,
     PageExploreResult,
     SkippedAction,
 )
 from qa_agent.platform.login_detection import perform_login_with_detection
 from qa_agent.platform.playwright_driver import PlaywrightPlatformDriver
+from qa_agent.plugins.auto_explore_exploration import run_safe_app_map_exploration
 from qa_agent.store.file_store import FileRunStore
 from qa_agent.validation.categories import ValidationCategory
 
@@ -25,46 +26,6 @@ logger = logging.getLogger(__name__)
 # Temporary: after first successful navigation, block so headed browsers stay open long enough to see the page.
 # Set to 0 to disable. Remove or gate behind env once workflows are stable.
 POST_NAV_DEBUG_PAUSE_MS = 5000
-
-RISKY_SUBSTRINGS = (
-    "delete",
-    "remove",
-    "reset",
-    "destroy",
-    "save",
-    "create",
-    "update",
-    "apply",
-    "reboot",
-    "shutdown",
-)
-
-
-def _is_risky_label(text: str, *, safe_mode: bool) -> bool:
-    if not safe_mode:
-        return False
-    t = (text or "").lower()
-    return any(tok in t for tok in RISKY_SUBSTRINGS)
-
-
-def _same_origin(url_a: str, url_b: str) -> bool:
-    try:
-        pa, pb = urlparse(url_a), urlparse(url_b)
-        return (pa.scheme, pa.netloc) == (pb.scheme, pb.netloc)
-    except Exception:
-        return False
-
-
-def _normalize_url(base: str, href: str) -> Optional[str]:
-    try:
-        u = urljoin(base, href)
-        pu = urlparse(u)
-        if pu.scheme not in ("http", "https"):
-            return None
-        return pu._replace(fragment="").geturl()
-    except Exception:
-        return None
-
 
 def _strip_fragment(url: str) -> str:
     try:
@@ -88,9 +49,12 @@ def _extensions_dict(context: RunContext) -> dict[str, Any]:
 
 def _merge_cfg(plugin_config: Mapping[str, Any], context: RunContext) -> MutableMapping[str, Any]:
     out: dict[str, Any] = dict(plugin_config)
-    ae = _extensions_dict(context).get("auto_explore")
+    ext = _extensions_dict(context)
+    ae = ext.get("auto_explore")
     if isinstance(ae, dict):
         out = {**out, **ae}
+    if ext.get("application"):
+        out["application"] = ext.get("application")
     return out
 
 
@@ -182,6 +146,9 @@ def run_auto_explore_ui(context: RunContext, plugin_config: Mapping[str, Any]) -
     warnings: List[str] = []
     skipped_risky: List[SkippedAction] = []
     visited_pages: List[PageExploreResult] = []
+    app_structure_summary = ""
+    selective_feature_summary = ""
+    feature_wise: List[FeatureExploreResult] = []
 
     if not target_url.startswith(("http://", "https://")):
         errors.append("target_url must start with http:// or https://")
@@ -300,96 +267,76 @@ def run_auto_explore_ui(context: RunContext, plugin_config: Mapping[str, Any]) -
         if login_ok is False:
             warnings.append(f"login: {login_detail}")
 
-        # Discover link count on post-login page (driver.read — same thread as navigate/interact)
-        try:
-            lr = driver.read({"evaluate": "() => document.querySelectorAll('a[href]').length"})
-            if lr.ok:
-                pages_discovered = int(lr.detail.get("value") or 0)
-            else:
-                pages_discovered = 0
-        except Exception:
-            pages_discovered = 0
+        post_login_extra_wait_ms = float(cfg.get("post_login_extra_wait_ms") or 0)
+        if post_login_extra_wait_ms > 0:
+            try:
+                page.wait_for_timeout(post_login_extra_wait_ms)
+            except Exception as exc:
+                warnings.append(f"post_login_extra_wait_ms: {exc}")
+
+        headed_pause_ms = float(cfg.get("headed_pause_ms") or 0)
+        if headed_pause_ms > 0:
+            try:
+                page.wait_for_timeout(headed_pause_ms)
+            except Exception as exc:
+                warnings.append(f"headed_pause_ms: {exc}")
+
+        explore_mode = str(cfg.get("explore_mode") or "full").strip().lower()
+        if explore_mode not in ("full", "selective"):
+            explore_mode = "full"
+        raw_sel = cfg.get("selected_features") or []
+        if isinstance(raw_sel, str):
+            selected_features = [x.strip() for x in raw_sel.split(",") if x.strip()]
+        else:
+            selected_features = [str(x).strip() for x in raw_sel if str(x).strip()]
+        navigation_mode = str(cfg.get("navigation_mode") or "href_bfs").strip().lower()
+        raw_prefixes = cfg.get("route_prefixes") or []
+        route_prefixes = [str(p).strip() for p in raw_prefixes if str(p).strip()]
+        # Profiles may use mode href_driven + route_prefixes — treat as prefix-scoped exploration.
+        if navigation_mode == "href_driven" and route_prefixes:
+            navigation_mode = "prefix_filter"
+        elif navigation_mode == "href_driven":
+            navigation_mode = "href_bfs"
+        fk_raw = cfg.get("feature_keywords") or {}
+        feature_keywords: dict[str, list[str]] = {}
+        if isinstance(fk_raw, dict):
+            for k, vals in fk_raw.items():
+                if not isinstance(vals, list):
+                    continue
+                feature_keywords[str(k)] = [str(v).strip() for v in vals if str(v).strip()]
+
+        per_page_timeout_ms = int(cfg.get("per_page_timeout_ms") or 45_000)
+        post_visit_settle_ms = int(cfg.get("post_visit_settle_ms") or 800)
 
         start_url = _strip_fragment(page.url)
-        visited_norm: Set[str] = set()
-        pending: deque[str] = deque()
-        pending.append(start_url)
-        queued: Set[str] = {start_url}
 
-        _LINKS_SCRIPT = """() => {
-          const out = [];
-          for (const a of document.querySelectorAll('a[href]')) {
-            const href = a.getAttribute('href') || '';
-            const text = (a.innerText || a.textContent || '').trim().slice(0, 200);
-            out.push({ href, text });
-          }
-          return out;
-        }"""
-
-        def _enqueue_links_from_current() -> None:
-            try:
-                dr = driver.read({"evaluate": _LINKS_SCRIPT})
-                if not dr.ok:
-                    warnings.append(f"link scan failed: {dr.errors}")
-                    return
-                items = dr.detail.get("value")
-                if not isinstance(items, list):
-                    warnings.append("link scan: unexpected evaluate result")
-                    return
-                base = page.url
-                for item in items:
-                    nu = _normalize_url(base, item.get("href") or "")
-                    if not nu or not _same_origin(nu, base):
-                        continue
-                    label = item.get("text") or ""
-                    if _is_risky_label(label, safe_mode=safe_mode):
-                        skipped_risky.append(
-                            SkippedAction(
-                                kind="link",
-                                reason="risky_label_safe_mode",
-                                label=label,
-                                href=nu,
-                            )
-                        )
-                        continue
-                    if nu not in queued:
-                        queued.add(nu)
-                        pending.append(nu)
-            except Exception as exc:
-                warnings.append(f"link scan failed: {exc}")
-
-        while pending and len(visited_pages) < max_pages:
-            url = pending.popleft()
-            nu = _strip_fragment(url)
-            if nu in visited_norm:
-                continue
-            visited_norm.add(nu)
-
-            nres = driver.navigate({"url": nu, "wait_until": "domcontentloaded", "timeout_ms": 45_000})
-            per = PageExploreResult(url=nu, title="", ok=nres.ok)
-            try:
-                tr = driver.read({"evaluate": "() => document.title"})
-                if tr.ok and isinstance(tr.detail.get("value"), str):
-                    per.title = tr.detail["value"]
-                else:
-                    per.title = page.title() or ""
-            except Exception:
-                pass
-
-            if not nres.ok:
-                per.ok = False
-                per.warnings.extend(list(nres.errors))
-                warnings.extend(list(nres.errors))
-            else:
-                per.checks.append("navigated (domcontentloaded)")
-                if per.title:
-                    per.checks.append("non-empty title")
-                if console_tail:
-                    per.warnings.append(f"recent console: {console_tail[-1]}")
-                per.evidence_refs.extend(_screenshot(page, nu))
-
-            visited_pages.append(per)
-            _enqueue_links_from_current()
+        (
+            visited_pages,
+            unique_queued,
+            _landing_url,
+            _landing_title,
+            app_structure_summary,
+            feature_wise,
+            selective_feature_summary,
+        ) = run_safe_app_map_exploration(
+            driver,
+            page,
+            start_url=start_url,
+            max_pages=max_pages,
+            safe_mode=safe_mode,
+            per_page_timeout_ms=per_page_timeout_ms,
+            post_visit_settle_ms=post_visit_settle_ms,
+            screenshot_fn=_screenshot,
+            warnings=warnings,
+            skipped_risky=skipped_risky,
+            console_tail=console_tail,
+            explore_mode=explore_mode,
+            selected_features=selected_features,
+            navigation_mode=navigation_mode,
+            route_prefixes=route_prefixes,
+            feature_keywords=feature_keywords or None,
+        )
+        pages_discovered = unique_queued
 
     except Exception as exc:
         errors.append(str(exc))
@@ -402,6 +349,11 @@ def run_auto_explore_ui(context: RunContext, plugin_config: Mapping[str, Any]) -
             logger.warning("auto_explore_ui driver.close failed: %s", fc)
 
     failed = bool(errors) or login_ok is False
+    _raw_sf = cfg.get("selected_features") or []
+    if isinstance(_raw_sf, str):
+        selected_for_summary = [x.strip() for x in _raw_sf.split(",") if x.strip()]
+    else:
+        selected_for_summary = [str(x).strip() for x in _raw_sf if str(x).strip()]
     summary = AutoExploreSummary(
         status="failed" if failed else "completed",
         failed=failed,
@@ -420,6 +372,15 @@ def run_auto_explore_ui(context: RunContext, plugin_config: Mapping[str, Any]) -
         skipped_risky=skipped_risky,
         warnings=warnings,
         errors=errors,
+        application=str(cfg.get("application") or "").strip(),
+        application_profile_path=str(_extensions_dict(context).get("application_profile_path") or ""),
+        explore_mode=str(cfg.get("explore_mode") or "full"),
+        selected_features=selected_for_summary,
+        navigation_mode=str(cfg.get("navigation_mode") or "href_bfs"),
+        route_prefixes=[str(p).strip() for p in (cfg.get("route_prefixes") or []) if str(p).strip()],
+        app_structure_summary=app_structure_summary,
+        selective_feature_summary=selective_feature_summary,
+        feature_wise=feature_wise,
     )
     context.merge_metadata({"executor": {"auto_explore_ui": summary}})
     duration_ms = (time.perf_counter() - start) * 1000

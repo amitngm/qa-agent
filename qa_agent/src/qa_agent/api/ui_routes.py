@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -230,6 +230,8 @@ async def ui_run_submit(
     password_selector: str = Form(""),
     login_button_selector: str = Form(""),
     success_marker: str = Form(""),
+    explore_mode: str = Form("full"),
+    selected_features: str = Form(""),
     orchestrator: QAOrchestrator = Depends(get_orchestrator),
     agent_config: AgentConfig = Depends(get_agent_config),
 ) -> Any:
@@ -276,14 +278,19 @@ async def ui_run_submit(
                 "manual_hints" if ls_raw == "manual_hints" else "auto_detect"
             )
             try:
+                em_raw = explore_mode.strip().lower()
+                em_use = cast(Literal["full", "selective"], "selective" if em_raw == "selective" else "full")
                 ae = AutoExploreRequest(
                     target_url=target_url.strip(),
+                    application=application.strip() or None,
                     username=username,
                     password=password,
                     login_strategy=ls_cast,
                     max_pages=max_pages,
                     safe_mode=_form_bool(safe_mode),
                     headless=_form_bool(headless),
+                    explore_mode=em_use,
+                    selected_features=selected_features,
                     username_selector=username_selector.strip() or None,
                     password_selector=password_selector.strip() or None,
                     login_button_selector=login_button_selector.strip() or None,
@@ -309,6 +316,8 @@ async def ui_run_submit(
                         "password_selector": password_selector,
                         "login_button_selector": login_button_selector,
                         "success_marker": success_marker,
+                        "explore_mode": explore_mode,
+                        "selected_features": selected_features,
                     },
                 )
             meta = RunMetadata(
@@ -350,6 +359,8 @@ async def ui_run_submit(
                 "password_selector": password_selector,
                 "login_button_selector": login_button_selector,
                 "success_marker": success_marker,
+                "explore_mode": explore_mode,
+                "selected_features": selected_features,
             },
         )
 

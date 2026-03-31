@@ -55,6 +55,21 @@ class PageExploreResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     skipped_actions: List[SkippedAction] = Field(default_factory=list)
     evidence_refs: List[str] = Field(default_factory=list)
+    heading: str = ""
+    forms_count: int = 0
+    tables_count: int = 0
+    buttons_count: int = 0
+    console_errors: List[str] = Field(default_factory=list)
+    network_failures: List[str] = Field(default_factory=list)
+    discovery_buckets: List[str] = Field(default_factory=list)
+    matched_features: List[str] = Field(default_factory=list)
+
+
+class FeatureExploreResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    feature: str
+    visited_urls: List[str] = Field(default_factory=list)
 
 
 class AutoExploreSummary(BaseModel):
@@ -83,3 +98,12 @@ class AutoExploreSummary(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     failed: bool = False
+    application: str = ""
+    application_profile_path: str = ""
+    explore_mode: str = "full"
+    selected_features: List[str] = Field(default_factory=list)
+    navigation_mode: str = "href_bfs"
+    route_prefixes: List[str] = Field(default_factory=list)
+    app_structure_summary: str = ""
+    selective_feature_summary: str = ""
+    feature_wise: List[FeatureExploreResult] = Field(default_factory=list)

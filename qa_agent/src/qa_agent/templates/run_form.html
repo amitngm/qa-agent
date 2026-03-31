@@ -50,6 +50,7 @@
 
     <h2 class="form-section-title">Auto explore</h2>
     <p class="hint">Used when <em>Auto explore</em> is selected. Runs <code>noop</code> flow execution plus the <code>auto_explore_ui</code> plugin (Playwright). Password is kept in memory for the run only and is not written to <code>meta.json</code>.</p>
+    <p class="hint">Set <strong>Application</strong> (above) to load an optional profile from <code>config/applications/&lt;application&gt;.yaml</code> (e.g. <code>coredge-console</code>). The profile can supply <code>base_url</code>, login hints, <code>navigation</code>, <code>safe_mode</code>, and <code>feature_keywords</code> for selective runs.</p>
     <p class="hint">If you enter a <strong>Target URL</strong> starting with <code>http://</code> or <code>https://</code> but leave <em>Known flow</em> selected, the server still runs <strong>Auto explore</strong> so Playwright is not skipped by mistake.</p>
     <label>Target URL
       <input name="target_url" type="url" placeholder="https://example.com/login" autocomplete="off" value="{{ form_values.target_url if form_values else '' }}">
@@ -94,6 +95,15 @@
     </label>
     <label>Success marker
       <input name="success_marker" type="text" placeholder="CSS for element visible after login" value="{{ form_values.success_marker if form_values else '' }}">
+    </label>
+    <label>Explore mode
+      <select name="explore_mode">
+        <option value="full" {% if not form_values or form_values.get('explore_mode', 'full') != 'selective' %}selected{% endif %}>Full — same-origin BFS from discovered links</option>
+        <option value="selective" {% if form_values and form_values.get('explore_mode') == 'selective' %}selected{% endif %}>Selective — only routes matching selected features (and profile feature_keywords)</option>
+      </select>
+    </label>
+    <label>Selected features (selective)
+      <input name="selected_features" type="text" placeholder="comma-separated, e.g. VM, VPC, Volume" value="{{ form_values.selected_features if form_values else '' }}">
     </label>
 
     <div class="form-actions">

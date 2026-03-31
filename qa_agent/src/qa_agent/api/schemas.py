@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, Mapping, Optional, Sequence
+from typing import Any, List, Literal, Mapping, Optional, Sequence, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -15,13 +15,16 @@ from qa_agent.core.types import RunStatus, StepStatus
 class AutoExploreRequest(BaseModel):
     """Payload for generic UI auto-exploration (password is never stored on run metadata)."""
 
-    target_url: str
+    target_url: str = ""
+    application: Optional[str] = None
     username: str = ""
     password: str = ""
     login_strategy: Literal["auto_detect", "manual_hints"] = "auto_detect"
     max_pages: int = Field(10, ge=1, le=50)
     safe_mode: bool = True
     headless: bool = True
+    explore_mode: Literal["full", "selective"] = "full"
+    selected_features: List[str] = Field(default_factory=list)
     username_selector: Optional[str] = None
     password_selector: Optional[str] = None
     login_button_selector: Optional[str] = None
@@ -31,9 +34,22 @@ class AutoExploreRequest(BaseModel):
     @classmethod
     def _http_url(cls, v: str) -> str:
         s = (v or "").strip()
+        if not s:
+            return ""
         if not s.startswith(("http://", "https://")):
             raise ValueError("target_url must start with http:// or https://")
         return s
+
+    @field_validator("selected_features", mode="before")
+    @classmethod
+    def _coerce_features(cls, v: Union[str, List[str], None]) -> List[str]:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [x.strip() for x in v.split(",") if x.strip()]
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
+        return []
 
 
 class RunRequest(BaseModel):

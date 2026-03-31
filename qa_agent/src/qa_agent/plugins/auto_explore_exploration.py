@@ -115,18 +115,58 @@ def _feature_string_matches(label: str, href: str, feature: str) -> bool:
     return True
 
 
-def matching_feature_tokens(label: str, href: str, selected: List[str]) -> List[str]:
-    """Which selected feature strings match this link (text and/or path keywords)."""
+def matching_feature_tokens(
+    label: str,
+    href: str,
+    selected: List[str],
+    *,
+    feature_keywords: Optional[Dict[str, List[str]]] = None,
+) -> List[str]:
+    """
+    Which selected feature strings match this link (text and/or path keywords).
+
+    If ``feature_keywords`` is set, each selected label may match via synonyms
+    (e.g. feature ``VM`` plus keywords ``virtual-machines``, ``compute``).
+    """
     if not selected:
         return []
     out: List[str] = []
+    fk = feature_keywords or {}
     for raw in selected:
         tok = raw.strip()
         if not tok:
             continue
-        if _feature_string_matches(label, href, tok):
+        candidates = [tok]
+        key_l = tok.lower()
+        for k, vals in fk.items():
+            if str(k).strip().lower() == key_l:
+                for v in vals:
+                    vs = str(v).strip()
+                    if vs:
+                        candidates.append(vs)
+                break
+        if any(_feature_string_matches(label, href, s) for s in candidates):
             out.append(tok)
     return out
+
+
+def path_matches_route_prefixes(path: str, prefixes: List[str]) -> bool:
+    """True if path equals or is under one of the prefix paths (generic path scoping)."""
+    if not prefixes:
+        return True
+    pl = (path or "").lower()
+    if not pl.startswith("/"):
+        pl = "/" + pl
+    for raw in prefixes:
+        p = (raw or "").strip().lower()
+        if not p:
+            continue
+        if not p.startswith("/"):
+            p = "/" + p
+        p = p.rstrip("/")
+        if pl == p or pl.startswith(p + "/"):
+            return True
+    return False
 
 
 def _same_origin(url_a: str, url_b: str) -> bool:
@@ -453,6 +493,9 @@ def run_safe_app_map_exploration(
     console_tail: List[str],
     explore_mode: str = "full",
     selected_features: Optional[List[str]] = None,
+    navigation_mode: str = "href_bfs",
+    route_prefixes: Optional[List[str]] = None,
+    feature_keywords: Optional[Dict[str, List[str]]] = None,
 ) -> Tuple[
     List[PageExploreResult],
     int,
@@ -474,6 +517,9 @@ def run_safe_app_map_exploration(
     """
     selected_features = list(selected_features or [])
     selective = explore_mode == "selective" and bool(selected_features)
+    prefixes = list(route_prefixes or [])
+    apply_prefix_filter = (navigation_mode or "").lower() == "prefix_filter" and bool(prefixes)
+    fk_map = feature_keywords or {}
 
     landing_url = _strip_fragment(start_url)
     landing_title = ""
@@ -551,8 +597,11 @@ def run_safe_app_map_exploration(
     bfs_count = 0
 
     logger.info(
-        "exploration: starting BFS explore_mode=%s (max_pages=%s safe_mode=%s landing=%s)",
+        "exploration: starting BFS explore_mode=%s navigation_mode=%s prefix_filter=%s "
+        "(max_pages=%s safe_mode=%s landing=%s)",
         explore_mode,
+        navigation_mode,
+        apply_prefix_filter,
         max_pages,
         safe_mode,
         landing_url,
@@ -803,6 +852,20 @@ def run_safe_app_map_exploration(
                             (label[:80] + "…") if len(label) > 80 else label,
                         )
                         continue
+                    if apply_prefix_filter and not path_matches_route_prefixes(pathname, prefixes):
+                        skipped_risky.append(
+                            SkippedAction(
+                                kind="link",
+                                reason="route_prefix_filter",
+                                label=label[:200] if label else "(empty)",
+                                href=nu2,
+                            )
+                        )
+                        logger.info(
+                            "exploration: skip route (prefix filter) path=%s",
+                            pathname,
+                        )
+                        continue
                     if safe_mode and is_risky_label(label, safe_mode=True):
                         skipped_risky.append(
                             SkippedAction(
@@ -819,7 +882,12 @@ def run_safe_app_map_exploration(
                         )
                         continue
                     if selective:
-                        mfs = matching_feature_tokens(label, nu2, selected_features)
+                        mfs = matching_feature_tokens(
+                            label,
+                            nu2,
+                            selected_features,
+                            feature_keywords=fk_map,
+                        )
                         if not mfs:
                             skipped_selective += 1
                             skipped_risky.append(

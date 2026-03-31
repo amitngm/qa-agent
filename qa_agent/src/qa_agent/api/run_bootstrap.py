@@ -8,6 +8,12 @@ from typing import Any
 from qa_agent.api.schemas import RunRequest
 
 logger = logging.getLogger(__name__)
+from qa_agent.config.application_profiles import (
+    assert_resolved_target_url,
+    load_application_profile_optional,
+    merge_public_with_optional_profile,
+    resolve_profile_yaml_path,
+)
 from qa_agent.config.settings import AgentConfig, PluginsConfig
 from qa_agent.core.types import RunContext
 
@@ -27,6 +33,18 @@ def apply_run_request_to_context(body: RunRequest, agent_config: AgentConfig) ->
         secrets["auto_explore_password"] = ae.password
         public = ae.model_dump(exclude={"password"}, mode="json")
         ext = dict(meta.extensions) if isinstance(meta.extensions, dict) else {}
+        app_slug = (
+            str(ext.get("application") or "").strip()
+            or str(public.get("application") or "").strip()
+        )
+        profile = load_application_profile_optional(app_slug) if app_slug else None
+        if profile is not None:
+            public = merge_public_with_optional_profile(public, profile)
+            ext["application_profile"] = profile.model_dump(mode="json")
+            ext["application_profile_path"] = str(resolve_profile_yaml_path(app_slug))
+            if app_slug:
+                public["application"] = app_slug
+        assert_resolved_target_url(public)
         ext["run_mode"] = "auto_explore"
         ext["auto_explore"] = public
         meta = meta.merged({"extensions": ext, "executor": {"flow_keys": ["noop"]}})
