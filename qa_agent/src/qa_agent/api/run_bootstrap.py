@@ -59,6 +59,30 @@ def apply_run_request_to_context(body: RunRequest, agent_config: AgentConfig) ->
     else:
         ext = dict(meta.extensions) if isinstance(meta.extensions, dict) else {}
         ext.setdefault("run_mode", "known_flow")
+        # Pass known_flow credentials through extensions so config-driven flows can pick them up.
+        if ext.get("kf_base_url"):
+            ext["base_url"] = str(ext["kf_base_url"])
+        if ext.get("kf_username"):
+            ext["username"] = str(ext["kf_username"])
+        if ext.get("kf_application"):
+            ext.setdefault("application", str(ext["kf_application"]))
+        # kf_password is kept in secrets (not in persisted metadata)
+        if ext.get("kf_password"):
+            secrets["password"] = str(ext.pop("kf_password"))
+        # Also load application profile base_url when kf_application is set and base_url is missing
+        app_slug = str(ext.get("kf_application") or ext.get("application") or "").strip()
+        if app_slug and not ext.get("base_url"):
+            try:
+                profile = load_application_profile_optional(app_slug)
+                if profile and profile.base_url:
+                    ext["base_url"] = profile.base_url
+                    logger.info(
+                        "run_bootstrap: known_flow loaded base_url=%s from application profile %s",
+                        profile.base_url,
+                        app_slug,
+                    )
+            except Exception as exc:
+                logger.debug("run_bootstrap: could not load application profile %s: %s", app_slug, exc)
         meta = meta.merged({"extensions": ext})
 
     return RunContext(metadata=meta, plugin_secrets=secrets), cfg

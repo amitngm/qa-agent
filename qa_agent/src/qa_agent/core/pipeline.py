@@ -11,6 +11,7 @@ from qa_agent.core.types import RunContext, StepResult
 from qa_agent.layers.base import LayerProtocol
 from qa_agent.plugins.api_validation import run_api_validation
 from qa_agent.plugins.data_validation import run_data_validation
+from qa_agent.plugins.page_validator import run_page_validation
 from qa_agent.plugins.report_sink import emit_report_sink
 from qa_agent.plugins.security_validation import run_security_validation
 from qa_agent.plugins.auto_explore_ui import run_auto_explore_ui
@@ -133,6 +134,11 @@ class StandardPipelineComposer:
                 key="auto_explore_ui",
                 cleanup="auto_explore_ui" in ck,
                 run=lambda: run_auto_explore_ui(context, dict(config.plugins.auto_explore_ui)),
+            ),
+            "page_validator": PipelineItem(
+                key="page_validator",
+                cleanup="page_validator" in ck,
+                run=lambda: run_page_validation(context, dict(config.plugins.page_validator)),
             ),
             "step_assertions": layer_item("step_assertions", layers.step_assertions),
             "flow_assertions": layer_item("flow_assertions", layers.flow_assertions),

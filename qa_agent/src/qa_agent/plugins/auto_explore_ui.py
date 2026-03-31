@@ -130,7 +130,8 @@ def run_auto_explore_ui(context: RunContext, plugin_config: Mapping[str, Any]) -
     password = str(context.plugin_secrets.get("auto_explore_password") or "")
 
     login_strategy = str(cfg.get("login_strategy") or "auto_detect").lower()
-    max_pages = max(1, min(int(cfg.get("max_pages") or 10), 50))
+    max_pages_limit = int(cfg.get("max_pages_limit") or 99999)
+    max_pages = max(1, min(int(cfg.get("max_pages") or 10), max_pages_limit))
     safe_mode = bool(cfg.get("safe_mode", True))
     headless = bool(cfg.get("headless", True))
     browser = str(cfg.get("browser") or "chromium")
@@ -280,6 +281,33 @@ def run_auto_explore_ui(context: RunContext, plugin_config: Mapping[str, Any]) -
                 page.wait_for_timeout(headed_pause_ms)
             except Exception as exc:
                 warnings.append(f"headed_pause_ms: {exc}")
+
+        # Navigate to the exploration start page after login (ensures BFS begins
+        # from the app's navigation hub, not wherever the login redirect landed).
+        explore_start_path = str(cfg.get("explore_start_path") or "").strip()
+        if explore_start_path:
+            from urllib.parse import urljoin
+            parsed_target = urlparse(target_url)
+            base_origin = f"{parsed_target.scheme}://{parsed_target.netloc}"
+            explore_start_url = urljoin(base_origin, explore_start_path)
+            if _strip_fragment(page.url) != _strip_fragment(explore_start_url):
+                logger.info(
+                    "auto_explore_ui navigating to explore_start_url=%s (current=%s)",
+                    explore_start_url,
+                    page.url,
+                )
+                try:
+                    snav = driver.navigate({
+                        "url": explore_start_url,
+                        "wait_until": "domcontentloaded",
+                        "timeout_ms": 30_000,
+                    })
+                    if not snav.ok:
+                        warnings.append(f"explore_start navigate failed: {snav.errors}")
+                    else:
+                        page.wait_for_timeout(800.0)
+                except Exception as exc:
+                    warnings.append(f"explore_start navigate: {exc}")
 
         explore_mode = str(cfg.get("explore_mode") or "full").strip().lower()
         if explore_mode not in ("full", "selective"):

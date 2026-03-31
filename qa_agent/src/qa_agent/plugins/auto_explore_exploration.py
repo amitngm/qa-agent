@@ -282,6 +282,21 @@ DISCOVERY_SCRIPT = """() => {
   return { countsByFamily, candidates, unresolvedCount: 0 };
 }"""
 
+DISCOVERY_FALLBACK_SCRIPT = """() => {
+  function trim(s, n) { return (s || '').trim().slice(0, n || 200); }
+  const seen = new Set();
+  const candidates = [];
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = (a.getAttribute('href') || '').trim();
+    if (!href || href.startsWith('javascript:') || href === '#') return;
+    if (seen.has(href)) return;
+    seen.add(href);
+    const text = trim(a.innerText || a.textContent || a.getAttribute('aria-label') || href, 200);
+    candidates.push({ href, text, bucket: 'fallback_all', family: 'fallback_all', resolvable: true });
+  });
+  return { countsByFamily: { fallback_all: candidates.length }, candidates, unresolvedCount: 0 };
+}"""
+
 PAGE_METRICS_SCRIPT = """() => {
   const h1 = document.querySelector('h1');
   const h2 = document.querySelector('h2');
@@ -592,6 +607,30 @@ def run_safe_app_map_exploration(
 
     enqueue(landing_url, "landing")
 
+    # Seed route_prefixes directly into the BFS queue.
+    # SPAs often don't render <a href> links in the DOM until a section is visited,
+    # so waiting for DOM discovery from the landing page alone is unreliable.
+    # Direct prefix seeding guarantees every configured section is visited.
+    if prefixes:
+        base_origin = ""
+        try:
+            from urllib.parse import urlparse as _up, urljoin as _uj
+            _p = _up(landing_url)
+            base_origin = f"{_p.scheme}://{_p.netloc}"
+        except Exception:
+            pass
+        if base_origin:
+            for prefix in prefixes:
+                prefix = prefix.strip()
+                if not prefix:
+                    continue
+                seed_url = _normalize_url(base_origin + "/", prefix.lstrip("/"))
+                if not seed_url:
+                    seed_url = _normalize_url(base_origin, prefix)
+                if seed_url and seed_url not in queued_urls:
+                    logger.info("exploration: seeding route_prefix url=%s", seed_url)
+                    enqueue(seed_url, "route_prefix_seed")
+
     visited_pages: List[PageExploreResult] = []
     visited_norm: Set[str] = set()
     bfs_count = 0
@@ -720,6 +759,16 @@ def run_safe_app_map_exploration(
 
         if selective:
             matched_features = sorted(url_feature_tags.get(nu, set()))
+        elif fk_map:
+            # In full mode, tag each page by checking its URL path against feature_keywords.
+            nu_path = (urlparse(nu).path or "").lower()
+            mf: List[str] = []
+            for feat_name, kw_list in fk_map.items():
+                for kw in kw_list:
+                    if kw.lower() in nu_path:
+                        mf.append(feat_name)
+                        break
+            matched_features = sorted(set(mf))
         else:
             matched_features = []
 
@@ -781,6 +830,22 @@ def run_safe_app_map_exploration(
             else:
                 warnings.append("discovery: unexpected value")
                 continue
+
+            # If visible discovery found nothing, try collecting all anchors (handles hidden SPA navs)
+            if not raw_items:
+                logger.info("exploration: 0 visible candidates — trying invisible-anchor fallback url=%s", nu)
+                try:
+                    dr2 = driver.read({"evaluate": DISCOVERY_FALLBACK_SCRIPT})
+                    if dr2.ok:
+                        payload2 = dr2.detail.get("value")
+                        if isinstance(payload2, dict):
+                            fb_items = list(payload2.get("candidates") or [])
+                            if fb_items:
+                                logger.info("exploration: fallback found %s anchors url=%s", len(fb_items), nu)
+                                raw_items = fb_items
+                                counts_by_family = payload2.get("countsByFamily") or {}
+                except Exception as exc:
+                    warnings.append(f"fallback_discovery:{exc}")
 
             logger.info(
                 "exploration: navigation discovery started — resolvable_candidates=%s url=%s",

@@ -1,0 +1,94 @@
+flow_key: airtel-vm-smoke
+flow_version: "1.0.0"
+description: "Airtel Console — VM section smoke test (list page loads, no JS errors)"
+browser: chromium
+headless: false
+
+steps:
+  - key: open_login
+    op: navigate
+    url: "{{base_url}}"
+    wait_until: domcontentloaded
+    label: Open login page
+
+  - key: fill_username
+    op: interact
+    action: fill
+    selector: "input[type='text'], input[name='username'], #username, [placeholder*='user' i], [placeholder*='email' i]"
+    text: "{{username}}"
+    label: Fill username
+
+  - key: fill_password
+    op: interact
+    action: fill
+    selector: "input[type='password'], #password, [name='password']"
+    text: "{{password}}"
+    label: Fill password
+
+  - key: click_login
+    op: interact
+    action: click
+    selector: "button[type='submit'], button:has-text('Login'), button:has-text('Sign in'), [type='submit']"
+    label: Click login button
+
+  - key: wait_after_login
+    op: wait
+    timeout_ms: 3000
+    label: Wait for post-login redirect
+
+  - key: assert_logged_in
+    op: assert_url
+    contains: "/project/"
+    label: Assert landed on project page
+    optional: true
+
+  - key: navigate_vm
+    op: navigate
+    url: "{{base_url}}/compute/virtual-machines"
+    wait_until: domcontentloaded
+    label: Navigate to Virtual Machines
+
+  - key: wait_vm_load
+    op: wait
+    timeout_ms: 3000
+    label: Wait for VM page to load
+
+  - key: assert_vm_page
+    op: assert_url
+    contains: "/compute/virtual-machines"
+    label: Assert on VM page
+
+  - key: navigate_volumes
+    op: navigate
+    url: "{{base_url}}/storage/volumes"
+    wait_until: domcontentloaded
+    label: Navigate to Volumes
+    optional: true
+
+  - key: navigate_vpc
+    op: navigate
+    url: "{{base_url}}/networking/vpcs"
+    wait_until: domcontentloaded
+    label: Navigate to VPCs
+    optional: true
+
+  - key: navigate_security_groups
+    op: navigate
+    url: "{{base_url}}/networking/security-groups"
+    wait_until: domcontentloaded
+    label: Navigate to Security Groups
+    optional: true
+
+  - key: navigate_kubernetes
+    op: navigate
+    url: "{{base_url}}/compute/kubernetes-clusters"
+    wait_until: domcontentloaded
+    label: Navigate to Kubernetes
+    optional: true
+
+  - key: navigate_monitoring
+    op: navigate
+    url: "{{base_url}}/monitoring/monitoring-dashboard"
+    wait_until: domcontentloaded
+    label: Navigate to Monitoring
+    optional: true

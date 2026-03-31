@@ -74,6 +74,7 @@ plugins:
     post_visit_settle_ms: 800
     post_login_extra_wait_ms: 0
     headed_pause_ms: 0
+    max_pages_limit: 99999  # effectively unlimited
   page_validator:
     enabled: true   # runs automatically after auto_explore_ui; skipped for known_flow if no explore data
   api_validation:

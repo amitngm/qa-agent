@@ -131,10 +131,18 @@ def list_disk_run_rows(runs_root: Path, *, limit: int = 50) -> list[dict[str, An
         flow = str(fk[0]) if fk else str(ext.get("flow", "") or "")
         steps_path = sub / "steps.jsonl"
         status = "unknown"
+        step_count: Any = "—"
         if steps_path.is_file():
             snap = load_disk_run_snapshot(runs_root, sub.name)
             if snap:
                 status = snap.status
+                step_count = snap.summary.get("step_count", "—")
+        run_mode = str(ext.get("run_mode") or "known_flow")
+        ae = ext.get("auto_explore")
+        if run_mode == "auto_explore" and isinstance(ae, dict) and ae.get("target_url"):
+            display_flow = str(ae["target_url"])
+        else:
+            display_flow = flow or "—"
         rows.append(
             (
                 dt,
@@ -142,9 +150,11 @@ def list_disk_run_rows(runs_root: Path, *, limit: int = 50) -> list[dict[str, An
                     "run_id": rid,
                     "application": application or "—",
                     "environment": environment or "—",
-                    "flow": flow or "—",
+                    "flow": display_flow,
+                    "run_mode": run_mode,
                     "status": status,
                     "started_at": started_s,
+                    "step_count": step_count,
                 },
             )
         )

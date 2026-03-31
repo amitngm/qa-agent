@@ -1,97 +1,256 @@
 {% extends "base.html" %}
 {% block title %}Run {{ run_id }}{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Run status</h1>
 
-  {% if error %}
-  <div class="callout callout-error" role="alert">
-    <p>{{ error }}</p>
+{% if error %}
+<div class="callout callout-error" role="alert"><p>{{ error }}</p></div>
+<div class="actions-inline">
+  <a class="button" href="/ui/run">New Run</a>
+  <a class="button button-secondary" href="/ui/history">History</a>
+</div>
+{% endif %}
+
+{% if result %}
+
+{# ── Header row ──────────────────────────────────────────────── #}
+<div class="run-title-bar">
+  <h1>Run status</h1>
+  {% if run_mode == 'auto_explore' %}
+    <span class="mode-badge mode-auto">🔍 Auto Explore</span>
+  {% else %}
+    <span class="mode-badge mode-known">🔁 Known Flow</span>
+  {% endif %}
+  <span class="badge badge-{{ result.status.value }}">{{ result.status.value }}</span>
+  <code class="muted run-id" style="margin-left:auto;">{{ result.run_id }}</code>
+</div>
+
+{# ── Metrics bar ─────────────────────────────────────────────── #}
+<div class="metrics-bar">
+  <div class="metric metric-info">
+    <div class="metric-value">{{ result.summary.get('step_count', '—') }}</div>
+    <div class="metric-label">Total Steps</div>
   </div>
-  <p class="actions-inline">
-    <a class="button" href="/ui/run">Run QA</a>
-    <a class="button button-secondary" href="/ui/history">History</a>
-  </p>
+  <div class="metric metric-ok">
+    <div class="metric-value">{{ passed_count if passed_count is not none else '—' }}</div>
+    <div class="metric-label">Passed</div>
+  </div>
+  <div class="metric metric-fail">
+    <div class="metric-value">{{ result.summary.get('failed', 0) }}</div>
+    <div class="metric-label">Failed</div>
+  </div>
+  <div class="metric metric-warn">
+    <div class="metric-value">{{ result.summary.get('skipped', 0) }}</div>
+    <div class="metric-label">Skipped</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value" style="font-size:1.25rem;">{% if elapsed_seconds is not none %}{{ elapsed_seconds }}s{% else %}—{% endif %}</div>
+    <div class="metric-label">Duration</div>
+  </div>
+  {% if severity %}
+  <div class="metric">
+    <div class="metric-value" style="font-size:1.1rem;"><code>{{ severity }}</code></div>
+    <div class="metric-label">Severity</div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Page validation metrics (auto explore only) ─────────────── #}
+{% if page_validation_summary and page_validation_summary.status == 'completed' %}
+<div class="card">
+  <div class="section-header">
+    <span class="section-icon-circle icon-blue">🛡️</span>
+    <h2>Page Validation</h2>
+    <span class="badge {% if page_validation_summary.failed %}badge-fail{% else %}badge-succeeded{% endif %}" style="margin-left:0.25rem;">
+      {% if page_validation_summary.failed %}{{ page_validation_summary.pages_failed }} failed{% else %}all passed{% endif %}
+    </span>
+  </div>
+
+  <div class="metrics-bar" style="margin-top:0.5rem;">
+    <div class="metric metric-info">
+      <div class="metric-value">{{ page_validation_summary.pages_total }}</div>
+      <div class="metric-label">Pages</div>
+    </div>
+    <div class="metric metric-ok">
+      <div class="metric-value">{{ page_validation_summary.pages_passed }}</div>
+      <div class="metric-label">Passed</div>
+    </div>
+    <div class="metric metric-fail">
+      <div class="metric-value">{{ page_validation_summary.pages_failed }}</div>
+      <div class="metric-label">Failed</div>
+    </div>
+    <div class="metric metric-warn">
+      <div class="metric-value">{{ page_validation_summary.pages_warned }}</div>
+      <div class="metric-label">Warnings</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">{{ page_validation_summary.checks_passed }}/{{ page_validation_summary.checks_run }}</div>
+      <div class="metric-label">Checks</div>
+    </div>
+  </div>
+
+  {% if page_validation_summary.features %}
+  <div class="section-header" style="margin-top:1rem;">
+    <span class="section-icon-circle icon-purple">🗂️</span>
+    <h2>Feature breakdown</h2>
+  </div>
+  <div class="feature-grid">
+    {% for feat in page_validation_summary.features %}
+    {% set card_cls = 'feature-card-fail' if feat.pages_failed > 0 else ('feature-card-warn' if feat.pages_warned > 0 else 'feature-card-pass') %}
+    <div class="feature-card {{ card_cls }}">
+      <div class="feature-card-name">{{ feat.feature }}</div>
+      <div class="feature-card-stats">
+        <span class="fc-total">{{ feat.pages_total }} pages</span>
+        {% if feat.pages_passed > 0 %}<span class="fc-pass">✓ {{ feat.pages_passed }}</span>{% endif %}
+        {% if feat.pages_failed > 0 %}<span class="fc-fail">✗ {{ feat.pages_failed }}</span>{% endif %}
+        {% if feat.pages_warned > 0 %}<span class="fc-warn">⚠ {{ feat.pages_warned }}</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% for feat in page_validation_summary.features %}
+  {% set failed_pages = feat.pages | selectattr('passed', 'eq', false) | list %}
+  {% if failed_pages %}
+  <details class="section">
+    <summary>{{ feat.feature }} — {{ failed_pages | length }} failing page(s)</summary>
+    <div class="section-body">
+      <div class="table-wrap" style="margin:0.5rem 0 0;">
+        <table class="table table-compact">
+          <thead><tr><th>URL</th><th>Rule</th><th>Detail</th></tr></thead>
+          <tbody>
+          {% for pg in failed_pages %}
+            {% for chk in pg.checks %}{% if not chk.passed %}
+            <tr>
+              <td class="page-result-url">{{ pg.url }}</td>
+              <td><code>{{ chk.rule }}</code></td>
+              <td class="{% if chk.severity == 'warn' %}check-warn{% else %}check-fail{% endif %}">{{ chk.detail or '—' }}</td>
+            </tr>
+            {% endif %}{% endfor %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+  {% endif %}
+  {% endfor %}
   {% endif %}
 
-  {% if result %}
+  {% if page_validation_summary.untagged_count and page_validation_summary.untagged_count > 0 %}
+  <p class="hint">+ {{ page_validation_summary.untagged_count }} untagged page(s) not matched to any feature.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Auto explore summary ─────────────────────────────────────── #}
+{% if auto_explore_summary %}
+<div class="card">
+  <div class="section-header">
+    <span class="section-icon-circle icon-blue">🔍</span>
+    <h2>Auto Explore</h2>
+  </div>
+  <div class="info-grid">
+    <dl class="kv">
+      <dt>Status</dt>
+      <dd>
+        <code>{{ auto_explore_summary.status }}</code>
+        {% if auto_explore_summary.failed %}<span class="badge badge-fail" style="margin-left:0.35rem;">failed</span>{% endif %}
+      </dd>
+      <dt>Target URL</dt>
+      <dd>{% if auto_explore_summary.target_url %}<code>{{ auto_explore_summary.target_url }}</code>{% else %}—{% endif %}</dd>
+      <dt>Browser</dt>
+      <dd><code>{{ auto_explore_summary.browser }}</code> {% if auto_explore_summary.headless %}· headless{% else %}· headed{% endif %}</dd>
+      <dt>Login</dt>
+      <dd>
+        {% if auto_explore_summary.login_ok is not none %}
+          <span class="{% if auto_explore_summary.login_ok %}stat-ok{% else %}stat-fail{% endif %}">
+            {{ '✓ ok' if auto_explore_summary.login_ok else '✗ failed' }}
+          </span>
+        {% else %}—{% endif %}
+        {% if auto_explore_summary.login_detail %}<span class="muted"> · {{ auto_explore_summary.login_detail }}</span>{% endif %}
+      </dd>
+    </dl>
+    <dl class="kv">
+      <dt>Pages visited</dt>
+      <dd><strong>{{ auto_explore_summary.pages_visited }}</strong></dd>
+      <dt>Links discovered</dt>
+      <dd>{{ auto_explore_summary.pages_discovered }}</dd>
+      <dt>Explore mode</dt>
+      <dd><code>{{ auto_explore_summary.explore_mode or 'full' }}</code></dd>
+      {% if auto_explore_summary.selected_features %}
+      <dt>Features</dt>
+      <dd>
+        <div class="pill-list">
+          {% for f in auto_explore_summary.selected_features %}
+          <span class="pill">{{ f }}</span>
+          {% endfor %}
+        </div>
+      </dd>
+      {% endif %}
+    </dl>
+  </div>
+  {% if auto_explore_summary.app_structure_summary %}
+  <p class="hint" style="margin-top:0.75rem;">{{ auto_explore_summary.app_structure_summary }}</p>
+  {% endif %}
+  {% if auto_explore_summary.feature_wise %}
+  <div class="section-header" style="margin-top:1rem;">
+    <span class="section-icon-circle icon-green">✅</span>
+    <h2>Feature coverage</h2>
+  </div>
+  <div class="feature-grid">
+    {% for fw in auto_explore_summary.feature_wise %}
+    <div class="feature-card feature-card-pass">
+      <div class="feature-card-name">{{ fw.feature }}</div>
+      <div class="feature-card-stats">
+        <span class="fc-total">{{ fw.visited_urls | length }} page(s)</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Run summary card ─────────────────────────────────────────── #}
+<div class="card">
+  <div class="section-header">
+    <span class="section-icon-circle icon-blue">📋</span>
+    <h2>Run details</h2>
+  </div>
   <dl class="kv">
-    <dt>Run ID</dt>
-    <dd><code class="run-id">{{ result.run_id }}</code></dd>
     <dt>Flow</dt>
     <dd>{{ flow_label }}</dd>
-    <dt>Status</dt>
-    <dd><span class="badge badge-{{ result.status.value }}">{{ result.status.value }}</span></dd>
-    <dt>Current step</dt>
+    <dt>Last step</dt>
     <dd>
       {% if last_step %}
-      <code>{{ last_step.layer }}</code> · {{ last_step.name }}
-      <span class="muted">({{ last_step.status.value }})</span>
+        <code>{{ last_step.layer }}</code> · {{ last_step.name }}
+        <span class="badge badge-{{ last_step.status.value }}" style="margin-left:0.35rem;">{{ last_step.status.value }}</span>
       {% else %}—{% endif %}
-      <span class="muted hint-inline">Last completed pipeline step</span>
     </dd>
     <dt>Started</dt>
     <dd>{{ result.started_at | fmt_dt }}</dd>
     <dt>Finished</dt>
     <dd>{{ result.finished_at | fmt_dt }}</dd>
-    <dt>Elapsed</dt>
-    <dd>{% if elapsed_seconds is not none %}{{ elapsed_seconds }} s{% else %}—{% endif %}</dd>
-    <dt>Severity <span class="muted">(reporting)</span></dt>
-    <dd>{% if severity %}<code>{{ severity }}</code>{% else %}—{% endif %}</dd>
-    <dt>Steps</dt>
-    <dd>
-      {% set total = result.summary.get('step_count', '—') %}
-      {{ total }} total
-      · <span class="stat-ok">passed {{ passed_count if passed_count is not none else '—' }}</span>
-      · <span class="stat-fail">failed {{ result.summary.get('failed', 0) }}</span>
-      · <span class="stat-skip">skipped {{ result.summary.get('skipped', 0) }}</span>
-    </dd>
   </dl>
 
-  {% if auto_explore_summary %}
-  <h2>Auto explore</h2>
-  <dl class="kv">
-    <dt>Plugin status</dt>
-    <dd><code>{{ auto_explore_summary.status }}</code>
-      {% if auto_explore_summary.failed %}<span class="muted">(failed)</span>{% endif %}
-    </dd>
-    <dt>Target URL</dt>
-    <dd>{% if auto_explore_summary.target_url %}<code>{{ auto_explore_summary.target_url }}</code>{% else %}—{% endif %}</dd>
-    <dt>Browser</dt>
-    <dd><code>{{ auto_explore_summary.browser }}</code> {% if auto_explore_summary.headless %}headless{% else %}headed{% endif %}</dd>
-    <dt>Login</dt>
-    <dd>
-      {% if auto_explore_summary.login_ok is not none %}
-      <code>{{ auto_explore_summary.login_ok }}</code>
-      {% else %}—{% endif %}
-      {% if auto_explore_summary.login_detail %}<span class="muted">{{ auto_explore_summary.login_detail }}</span>{% endif %}
-    </dd>
-    <dt>Pages</dt>
-    <dd>visited {{ auto_explore_summary.pages_visited }} · links seen {{ auto_explore_summary.pages_discovered }}</dd>
-  </dl>
-  {% endif %}
-
-  <h2>Recent step results</h2>
   {% if recent_rows %}
+  <div class="section-header" style="margin-top:1.25rem;">
+    <span class="section-icon-circle icon-blue">🔧</span>
+    <h2>Pipeline steps</h2>
+  </div>
   <div class="table-wrap">
     <table class="table table-steps">
       <thead>
-        <tr>
-          <th>#</th>
-          <th>Layer</th>
-          <th>Name</th>
-          <th>Status</th>
-          <th>Duration (ms)</th>
-        </tr>
+        <tr><th>#</th><th>Layer</th><th>Name</th><th>Status</th><th>Duration (ms)</th></tr>
       </thead>
       <tbody>
         {% for row in recent_rows %}
-        <tr>
+        <tr class="{% if row.status == 'failed' %}row-fail{% elif row.status == 'skipped' %}row-skip{% endif %}">
           <td>{{ row.seq }}</td>
           <td><code>{{ row.layer }}</code></td>
           <td>{{ row.name }}</td>
           <td><span class="badge badge-{{ row.status }}">{{ row.status }}</span></td>
-          <td>{% if row.duration_ms is not none %}{{ row.duration_ms }}{% else %}—{% endif %}</td>
+          <td>{% if row.duration_ms is not none %}{{ "%.0f" | format(row.duration_ms) }}{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -100,25 +259,29 @@
   {% if result.steps | length > recent_row_count %}
   <p class="hint">Showing last {{ recent_row_count }} of {{ result.steps | length }} steps.</p>
   {% endif %}
-  {% else %}
-  <p class="empty">No step rows recorded.</p>
   {% endif %}
 
-  <p class="actions-inline">
-    <a class="button" href="/ui/runs/{{ run_id }}/report">Open report</a>
+  <div class="actions-inline">
+    <a class="button" href="/ui/runs/{{ run_id }}/report">Open Report</a>
     <a class="button button-secondary" href="/ui/runs/{{ run_id }}/status">Refresh</a>
     <a class="button button-secondary" href="/ui/history">History</a>
-  </p>
+    <a class="button button-secondary" href="/ui/run">New Run</a>
+  </div>
 
   {% if not has_disk %}
-  <p class="hint">Tip: set <code>runs_storage_root</code> in configuration so runs survive process restarts.</p>
+  <p class="hint" style="margin-top:0.75rem;">Tip: set <code>runs_storage_root</code> in config to persist runs across restarts.</p>
   {% endif %}
+</div>
 
-  {% elif not error %}
-  <p class="empty">No run data.</p>
-  <p class="actions-inline">
-    <a class="button" href="/ui/run">Run QA</a>
-  </p>
-  {% endif %}
-</section>
+{% elif not error %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-state-icon">🔍</div>
+    <p>No run data found.</p>
+  </div>
+  <div class="actions-inline" style="justify-content:center;">
+    <a class="button" href="/ui/run">New Run</a>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

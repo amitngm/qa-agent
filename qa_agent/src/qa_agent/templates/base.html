@@ -3,14 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ title or "QA Agent" }}{% endblock %} · QA Agent</title>
+  <title>{% block title %}QA Agent{% endblock %} · QA Agent</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header class="site-header">
-    <div class="brand"><a href="/ui/run">QA Agent</a></div>
+    <div class="brand">
+      <a href="/ui/run">
+        <span class="brand-icon">⚡</span> QA Agent
+      </a>
+    </div>
     <nav class="nav" aria-label="Main">
-      <a href="/ui/run">Run QA</a>
+      <a href="/ui/run">New Run</a>
+      <a href="/ui/record">Recorder</a>
       <a href="/ui/history">History</a>
     </nav>
   </header>
@@ -18,7 +23,7 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer">
-    <span>Generic QA orchestration</span>
+    <span>Generic QA orchestration framework</span>
   </footer>
 </body>
 </html>

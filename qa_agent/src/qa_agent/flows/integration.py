@@ -52,11 +52,20 @@ class FlowEngineExecutionLayer(ExecutionLayer):
                 detail={"flows_run": 0, "reason": "no_flow_keys"},
             )
 
+        # Seed baggage from RunContext extensions so config-driven flows can read credentials.
+        ext = context.metadata.extensions
+        baggage_seed: dict = {}
+        if isinstance(ext, dict):
+            baggage_seed = dict(ext)
+        # Also expose plugin_secrets (passwords) directly into baggage
+        if context.plugin_secrets:
+            baggage_seed.update(context.plugin_secrets)
+
         results: List[Any] = []
         failures = 0
         for key in keys:
             flow = self._registry.require(key)
-            fctx = FlowContext(parent_run_id=context.run_id)
+            fctx = FlowContext(parent_run_id=context.run_id, baggage=dict(baggage_seed))
             fr = self._engine.run(flow, fctx, config, parent_run_id=context.run_id)
             results.append(fr.model_dump(mode="json"))
             if not fr.ok:

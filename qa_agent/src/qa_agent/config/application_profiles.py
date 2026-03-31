@@ -26,10 +26,14 @@ class NavigationSection(BaseModel):
 
     - ``href_bfs``: discover all same-origin links (default).
     - ``prefix_filter``: only enqueue links whose path starts with one of ``route_prefixes``.
+
+    ``explore_start_path``: path to navigate to after login before BFS begins.
+    Ensures BFS starts from the app's main navigation hub, not wherever login redirected.
     """
 
     mode: str = "href_bfs"
     route_prefixes: List[str] = Field(default_factory=list)
+    explore_start_path: str = ""
 
 
 class ApplicationProfile(BaseModel):
@@ -113,6 +117,7 @@ def profile_to_auto_explore_defaults(profile: ApplicationProfile) -> Dict[str, A
         "safe_mode": profile.safe_mode,
         "navigation_mode": profile.navigation.mode,
         "route_prefixes": list(profile.navigation.route_prefixes),
+        "explore_start_path": profile.navigation.explore_start_path,
         "feature_keywords": {k: list(v) for k, v in profile.feature_keywords.items()},
     }
 

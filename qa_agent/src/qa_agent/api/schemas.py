@@ -20,7 +20,7 @@ class AutoExploreRequest(BaseModel):
     username: str = ""
     password: str = ""
     login_strategy: Literal["auto_detect", "manual_hints"] = "auto_detect"
-    max_pages: int = Field(10, ge=1, le=50)
+    max_pages: int = Field(10, ge=1)
     safe_mode: bool = True
     headless: bool = True
     explore_mode: Literal["full", "selective"] = "full"

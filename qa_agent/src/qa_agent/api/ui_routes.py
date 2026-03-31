@@ -191,6 +191,16 @@ def ui_home() -> RedirectResponse:
     return RedirectResponse(url="/ui/run", status_code=302)
 
 
+def _all_flow_keys() -> list[str]:
+    """Return all registered flow keys (built-in + config-driven)."""
+    try:
+        from qa_agent.flows.default_registry import default_flow_registry
+        reg = default_flow_registry()
+        return list(reg.keys())
+    except Exception:
+        return ["generic_crud_lifecycle", "linear_two_step", "noop"]
+
+
 @router.get("/run")
 def ui_run_form(request: Request, agent_config: AgentConfig = Depends(get_agent_config)) -> Any:
     return templates.TemplateResponse(
@@ -200,6 +210,7 @@ def ui_run_form(request: Request, agent_config: AgentConfig = Depends(get_agent_
             "title": "Run QA",
             "default_environment": agent_config.environment,
             "suite_flow_keys": list(agent_config.suite.flow_keys),
+            "all_flow_keys": _all_flow_keys(),
             "form_error": None,
             "form_values": None,
         },
@@ -232,6 +243,10 @@ async def ui_run_submit(
     success_marker: str = Form(""),
     explore_mode: str = Form("full"),
     selected_features: str = Form(""),
+    kf_base_url: str = Form(""),
+    kf_username: str = Form(""),
+    kf_password: str = Form(""),
+    kf_application: str = Form(""),
     orchestrator: QAOrchestrator = Depends(get_orchestrator),
     agent_config: AgentConfig = Depends(get_agent_config),
 ) -> Any:
@@ -256,6 +271,15 @@ async def ui_run_submit(
         ext["run_type"] = run_type.strip()
     if role_profile.strip():
         ext["role_profile"] = role_profile.strip()
+    # Known flow credentials (config-driven flows) — stored in extensions, password handled in bootstrap
+    if kf_base_url.strip():
+        ext["kf_base_url"] = kf_base_url.strip()
+    if kf_username.strip():
+        ext["kf_username"] = kf_username.strip()
+    if kf_password.strip():
+        ext["kf_password"] = kf_password.strip()
+    if kf_application.strip():
+        ext["kf_application"] = kf_application.strip()
 
     def _error_response(msg: str, fv: dict[str, Any]) -> Any:
         return templates.TemplateResponse(
@@ -265,6 +289,7 @@ async def ui_run_submit(
                 "title": "Run QA",
                 "default_environment": agent_config.environment,
                 "suite_flow_keys": list(agent_config.suite.flow_keys),
+                "all_flow_keys": _all_flow_keys(),
                 "form_error": msg,
                 "form_values": fv,
             },
@@ -318,6 +343,9 @@ async def ui_run_submit(
                         "success_marker": success_marker,
                         "explore_mode": explore_mode,
                         "selected_features": selected_features,
+                        "kf_base_url": kf_base_url,
+                        "kf_username": kf_username,
+                        "kf_application": kf_application,
                     },
                 )
             meta = RunMetadata(
@@ -361,6 +389,9 @@ async def ui_run_submit(
                 "success_marker": success_marker,
                 "explore_mode": explore_mode,
                 "selected_features": selected_features,
+                "kf_base_url": kf_base_url,
+                "kf_username": kf_username,
+                "kf_application": kf_application,
             },
         )
 
@@ -407,10 +438,13 @@ def ui_run_status(
         elapsed = _elapsed_seconds(result)
         passed = _passed_count(result)
     auto_explore_summary: Optional[dict[str, Any]] = None
+    page_validation_summary: Optional[dict[str, Any]] = None
+    run_mode: str = "known_flow"
     if meta is not None:
         flow_label = _flow_label(meta)
         ext_m = _extensions_dict(meta)
-        if ext_m.get("run_mode") == "auto_explore":
+        run_mode = str(ext_m.get("run_mode") or "known_flow")
+        if run_mode == "auto_explore":
             ae = ext_m.get("auto_explore")
             if isinstance(ae, dict) and ae.get("target_url"):
                 tu = str(ae["target_url"])
@@ -430,6 +464,27 @@ def ui_run_status(
                 "failed": a.failed,
                 "browser": a.browser,
                 "headless": a.headless,
+                "explore_mode": a.explore_mode,
+                "selected_features": list(a.selected_features or []),
+                "app_structure_summary": a.app_structure_summary or "",
+                "selective_feature_summary": a.selective_feature_summary or "",
+                "feature_wise": [fw.model_dump(mode="json") for fw in (a.feature_wise or [])],
+            }
+        v = meta.validator
+        if v is not None and v.page_validation is not None:
+            pv = v.page_validation
+            page_validation_summary = {
+                "status": pv.status,
+                "pages_total": pv.pages_total,
+                "pages_passed": pv.pages_passed,
+                "pages_failed": pv.pages_failed,
+                "pages_warned": pv.pages_warned,
+                "checks_run": pv.checks_run,
+                "checks_passed": pv.checks_passed,
+                "failed": pv.failed,
+                "features": [f.model_dump(mode="json") for f in (pv.features or [])],
+                "untagged_count": len(pv.untagged_pages or []),
+                "skip_reason": pv.skip_reason,
             }
 
     return templates.TemplateResponse(
@@ -449,7 +504,9 @@ def ui_run_status(
             "passed_count": passed,
             "recent_rows": recent_rows,
             "recent_row_count": len(recent_rows),
+            "run_mode": run_mode,
             "auto_explore_summary": auto_explore_summary,
+            "page_validation_summary": page_validation_summary,
         },
     )
 

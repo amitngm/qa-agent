@@ -1,114 +1,235 @@
 {% extends "base.html" %}
-{% block title %}Run QA{% endblock %}
+{% block title %}New Run{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Run QA</h1>
-  <p class="lead">Choose <strong>Known flow</strong> (orchestrated flow keys) or <strong>Auto explore</strong> (generic URL login + safe link walk).</p>
 
-  {% if form_error %}
-  <div class="callout callout-error" role="alert">
-    <strong>Could not start run.</strong>
-    <p>{{ form_error }}</p>
-  </div>
-  {% endif %}
+<div class="page-header">
+  <h1>New QA Run</h1>
+  <p class="lead">Choose a mode, configure your target, and launch.</p>
+</div>
 
-  <form method="post" action="/ui/run" class="form">
-    <fieldset class="fieldset-compact">
-      <legend>Run mode</legend>
-      <label class="inline-label">
-        <input type="radio" name="run_mode" value="known_flow" {% if not form_values or form_values.run_mode != 'auto_explore' %}checked{% endif %}>
-        Known flow
+{% if form_error %}
+<div class="callout callout-error" role="alert">
+  <strong>Could not start run.</strong> {{ form_error }}
+</div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="/ui/run" class="form" id="run-form">
+
+    <!-- Mode selector tabs -->
+    <input class="mode-radio" type="radio" name="run_mode" id="tab-known" value="known_flow"
+      {% if not form_values or form_values.run_mode != 'auto_explore' %}checked{% endif %}>
+    <input class="mode-radio" type="radio" name="run_mode" id="tab-auto" value="auto_explore"
+      {% if form_values and form_values.run_mode == 'auto_explore' %}checked{% endif %}>
+
+    <div class="mode-tabs" role="tablist">
+      <label class="mode-tab" for="tab-known" id="label-known" role="tab">
+        🔁 Known Flow
       </label>
-      <label class="inline-label">
-        <input type="radio" name="run_mode" value="auto_explore" {% if form_values and form_values.run_mode == 'auto_explore' %}checked{% endif %}>
-        Auto explore
+      <label class="mode-tab" for="tab-auto" id="label-auto" role="tab">
+        🔍 Auto Explore
       </label>
-    </fieldset>
+    </div>
 
-    <h2 class="form-section-title">Known flow</h2>
-    <p class="hint">Used when <em>Known flow</em> is selected. Maps to run metadata and configured flow keys.</p>
-    <label>Application
-      <input name="application" type="text" placeholder="e.g. my-service" autocomplete="off" value="{{ form_values.application if form_values else '' }}">
-    </label>
-    <label>Environment
-      <input name="environment" type="text" value="{{ form_values.environment if form_values else default_environment }}" placeholder="e.g. local" autocomplete="off">
-    </label>
-    <label>Flow
-      <select name="flow">
-        <option value="generic_crud_lifecycle" {% if not form_values or form_values.flow == 'generic_crud_lifecycle' %}selected{% endif %}>generic_crud_lifecycle — sample CRUD lifecycle</option>
-        <option value="linear_two_step" {% if form_values and form_values.flow == 'linear_two_step' %}selected{% endif %}>linear_two_step — two-step sample</option>
-        <option value="noop" {% if form_values and form_values.flow == 'noop' %}selected{% endif %}>noop — no-op sample</option>
-        <option value="" {% if form_values and form_values.flow == '' %}selected{% endif %}>Suite default only ({{ suite_flow_keys | join(', ') }})</option>
-      </select>
-    </label>
-    <label>Run type
-      <input name="run_type" type="text" placeholder="e.g. smoke, regression" autocomplete="off" value="{{ form_values.run_type if form_values else '' }}">
-    </label>
-    <label>Role profile
-      <input name="role_profile" type="text" placeholder="optional label" autocomplete="off" value="{{ form_values.role_profile if form_values else '' }}">
-    </label>
+    <!-- ── Known Flow section ───────────────────────────────── -->
+    <div id="section-known">
+      <div class="form-section">
+        <p class="form-section-title"><span class="section-icon">🏷️</span> Run identity</p>
+        <div class="form-row">
+          <label>Application
+            <span class="label-hint">Logical name of the app under test</span>
+            <input name="application" type="text" placeholder="e.g. my-service" autocomplete="off"
+              value="{{ form_values.application if form_values else '' }}">
+          </label>
+          <label>Environment
+            <span class="label-hint">Override the default environment label</span>
+            <input name="environment" type="text"
+              value="{{ form_values.environment if form_values else default_environment }}"
+              placeholder="e.g. staging" autocomplete="off">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Run type
+            <span class="label-hint">Optional label: smoke, regression, sanity…</span>
+            <input name="run_type" type="text" placeholder="e.g. smoke"
+              autocomplete="off" value="{{ form_values.run_type if form_values else '' }}">
+          </label>
+          <label>Role profile
+            <span class="label-hint">Optional role label carried on metadata</span>
+            <input name="role_profile" type="text" placeholder="e.g. admin"
+              autocomplete="off" value="{{ form_values.role_profile if form_values else '' }}">
+          </label>
+        </div>
+      </div>
 
-    <h2 class="form-section-title">Auto explore</h2>
-    <p class="hint">Used when <em>Auto explore</em> is selected. Runs <code>noop</code> flow execution plus the <code>auto_explore_ui</code> plugin (Playwright). Password is kept in memory for the run only and is not written to <code>meta.json</code>.</p>
-    <p class="hint">Set <strong>Application</strong> (above) to load an optional profile from <code>config/applications/&lt;application&gt;.yaml</code> (e.g. <code>coredge-console</code>). The profile can supply <code>base_url</code>, login hints, <code>navigation</code>, <code>safe_mode</code>, and <code>feature_keywords</code> for selective runs.</p>
-    <p class="hint">If you enter a <strong>Target URL</strong> starting with <code>http://</code> or <code>https://</code> but leave <em>Known flow</em> selected, the server still runs <strong>Auto explore</strong> so Playwright is not skipped by mistake.</p>
-    <label>Target URL
-      <input name="target_url" type="url" placeholder="https://example.com/login" autocomplete="off" value="{{ form_values.target_url if form_values else '' }}">
-    </label>
-    <label>Username
-      <input name="username" type="text" autocomplete="username" value="{{ form_values.username if form_values else '' }}">
-    </label>
-    <label>Password
-      <input name="password" type="password" autocomplete="current-password" value="">
-    </label>
-    <label>Login strategy
-      <select name="login_strategy">
-        <option value="auto_detect" {% if not form_values or form_values.login_strategy != 'manual_hints' %}selected{% endif %}>auto_detect</option>
-        <option value="manual_hints" {% if form_values and form_values.login_strategy == 'manual_hints' %}selected{% endif %}>manual_hints</option>
-      </select>
-    </label>
-    <p class="hint">With <code>manual_hints</code>, set <strong>both</strong> username and password CSS selectors below, or leave them empty to run the same auto heuristics as <code>auto_detect</code>.</p>
-    <label>Max pages
-      <input name="max_pages" type="number" min="1" max="50" value="{{ form_values.max_pages if form_values else 10 }}">
-    </label>
-    <label>Safe mode
-      <select name="safe_mode">
-        <option value="true" {% if not form_values or form_values.safe_mode in (None, 'true', '1') %}selected{% endif %}>On (default) — skip risky link labels</option>
-        <option value="false" {% if form_values and form_values.safe_mode == 'false' %}selected{% endif %}>Off — allow more navigation (use with care)</option>
-      </select>
-    </label>
-    <label>Headless browser
-      <select name="headless">
-        <option value="true" {% if not form_values or form_values.headless in (None, 'true', '1') %}selected{% endif %}>Yes</option>
-        <option value="false" {% if form_values and form_values.headless == 'false' %}selected{% endif %}>No (show browser)</option>
-      </select>
-    </label>
-    <p class="hint">Optional selectors (for <code>manual_hints</code> or to override success detection):</p>
-    <label>Username selector
-      <input name="username_selector" type="text" placeholder="CSS, e.g. #user" value="{{ form_values.username_selector if form_values else '' }}">
-    </label>
-    <label>Password selector
-      <input name="password_selector" type="text" placeholder="CSS" value="{{ form_values.password_selector if form_values else '' }}">
-    </label>
-    <label>Login button selector
-      <input name="login_button_selector" type="text" placeholder="CSS" value="{{ form_values.login_button_selector if form_values else '' }}">
-    </label>
-    <label>Success marker
-      <input name="success_marker" type="text" placeholder="CSS for element visible after login" value="{{ form_values.success_marker if form_values else '' }}">
-    </label>
-    <label>Explore mode
-      <select name="explore_mode">
-        <option value="full" {% if not form_values or form_values.get('explore_mode', 'full') != 'selective' %}selected{% endif %}>Full — same-origin BFS from discovered links</option>
-        <option value="selective" {% if form_values and form_values.get('explore_mode') == 'selective' %}selected{% endif %}>Selective — only routes matching selected features (and profile feature_keywords)</option>
-      </select>
-    </label>
-    <label>Selected features (selective)
-      <input name="selected_features" type="text" placeholder="comma-separated, e.g. VM, VPC, Volume" value="{{ form_values.selected_features if form_values else '' }}">
-    </label>
+      <div class="form-section">
+        <p class="form-section-title"><span class="section-icon">▶️</span> Flow to run</p>
+        <label>Flow key
+          <span class="label-hint">Select a registered flow or use suite default</span>
+          <select name="flow">
+            {% for fk in all_flow_keys %}
+            <option value="{{ fk }}" {% if form_values and form_values.flow == fk %}selected{% elif not form_values and loop.first %}selected{% endif %}>{{ fk }}</option>
+            {% endfor %}
+            <option value="" {% if form_values and form_values.flow == '' %}selected{% endif %}>Suite default ({{ suite_flow_keys | join(', ') or '—' }})</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-section">
+        <p class="form-section-title"><span class="section-icon">🔑</span> Credentials (for config-driven flows)</p>
+        <div class="form-row">
+          <label>Base URL
+            <span class="label-hint">Override app base URL (config-driven flows use {{base_url}})</span>
+            <input name="kf_base_url" type="url" placeholder="https://app.example.com"
+              value="{{ form_values.kf_base_url if form_values else '' }}">
+          </label>
+          <label>Username
+            <input name="kf_username" type="text" autocomplete="username"
+              value="{{ form_values.kf_username if form_values else '' }}">
+          </label>
+        </div>
+        <label>Password
+          <input name="kf_password" type="password" autocomplete="current-password" value="">
+        </label>
+        <label>Application profile
+          <span class="label-hint">Optional — loads base_url if Base URL is empty</span>
+          <input name="kf_application" type="text" placeholder="e.g. airtel-console"
+            value="{{ form_values.kf_application if form_values else '' }}">
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Auto Explore section ─────────────────────────────── -->
+    <div id="section-auto" style="display:none">
+      <div class="callout callout-muted">
+        <strong>Auto Explore</strong> — logs in, discovers all same-origin pages, and validates each one.
+        Set <strong>Application</strong> to load a profile from
+        <code>config/applications/&lt;app&gt;.yaml</code> (supplies base URL, login hints, and feature keywords).
+      </div>
+
+      <div class="form-section">
+        <p class="form-section-title"><span class="section-icon">🌐</span> Target</p>
+        <label>Application profile
+          <span class="label-hint">Matches <code>config/applications/&lt;slug&gt;.yaml</code> — supplies base URL + feature keywords</span>
+          <input name="application" type="text" placeholder="e.g. coredge-console"
+            autocomplete="off" value="{{ form_values.application if form_values else '' }}" id="ae-application">
+        </label>
+        <label>Target URL
+          <span class="label-hint">Override base URL (leave empty to use profile base_url)</span>
+          <input name="target_url" type="url" placeholder="https://app.example.com/login"
+            autocomplete="off" value="{{ form_values.target_url if form_values else '' }}">
+        </label>
+      </div>
+
+      <div class="form-section">
+        <p class="form-section-title"><span class="section-icon">🔑</span> Login</p>
+        <div class="form-row">
+          <label>Username
+            <input name="username" type="text" autocomplete="username"
+              value="{{ form_values.username if form_values else '' }}">
+          </label>
+          <label>Password
+            <input name="password" type="password" autocomplete="current-password" value="">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Login strategy
+            <select name="login_strategy">
+              <option value="auto_detect" {% if not form_values or form_values.login_strategy != 'manual_hints' %}selected{% endif %}>auto_detect — heuristic detection</option>
+              <option value="manual_hints" {% if form_values and form_values.login_strategy == 'manual_hints' %}selected{% endif %}>manual_hints — provide selectors below</option>
+            </select>
+          </label>
+          <label>Success marker
+            <span class="label-hint">CSS selector or text visible after login</span>
+            <input name="success_marker" type="text" placeholder="e.g. .dashboard or Dashboard"
+              value="{{ form_values.success_marker if form_values else '' }}">
+          </label>
+        </div>
+
+        <details class="section">
+          <summary>Manual login selectors (optional)</summary>
+          <div class="section-body">
+            <div class="form-row">
+              <label>Username selector
+                <input name="username_selector" type="text" placeholder="CSS, e.g. #user"
+                  value="{{ form_values.username_selector if form_values else '' }}">
+              </label>
+              <label>Password selector
+                <input name="password_selector" type="text" placeholder="CSS, e.g. #pass"
+                  value="{{ form_values.password_selector if form_values else '' }}">
+              </label>
+            </div>
+            <label>Login button selector
+              <input name="login_button_selector" type="text" placeholder="CSS, e.g. button[type=submit]"
+                value="{{ form_values.login_button_selector if form_values else '' }}">
+            </label>
+          </div>
+        </details>
+      </div>
+
+      <div class="form-section">
+        <p class="form-section-title"><span class="section-icon">🗺️</span> Explore mode</p>
+        <div class="form-row">
+          <label>Mode
+            <select name="explore_mode">
+              <option value="full" {% if not form_values or form_values.get('explore_mode', 'full') != 'selective' %}selected{% endif %}>Full — BFS all same-origin links</option>
+              <option value="selective" {% if form_values and form_values.get('explore_mode') == 'selective' %}selected{% endif %}>Selective — only matched features</option>
+            </select>
+          </label>
+          <label>Max pages
+            <span class="label-hint">How many pages to visit (no hard limit)</span>
+            <input name="max_pages" type="number" min="1"
+              value="{{ form_values.max_pages if form_values else 10 }}">
+          </label>
+        </div>
+        <label>Selected features <span class="muted">(for Selective mode)</span>
+          <span class="label-hint">Comma-separated: VM, VPC, Volume, Users…</span>
+          <input name="selected_features" type="text"
+            placeholder="e.g. VM, VPC, Volume" value="{{ form_values.selected_features if form_values else '' }}">
+        </label>
+        <div class="form-row">
+          <label>Safe mode
+            <select name="safe_mode">
+              <option value="true" {% if not form_values or form_values.safe_mode in (None, 'true', '1') %}selected{% endif %}>On — skip risky actions</option>
+              <option value="false" {% if form_values and form_values.safe_mode == 'false' %}selected{% endif %}>Off — allow more navigation</option>
+            </select>
+          </label>
+          <label>Browser
+            <select name="headless">
+              <option value="true" {% if not form_values or form_values.headless in (None, 'true', '1') %}selected{% endif %}>Headless</option>
+              <option value="false" {% if form_values and form_values.headless == 'false' %}selected{% endif %}>Show browser</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
 
     <div class="form-actions">
-      <button type="submit" class="button">Run QA</button>
+      <button type="submit" class="button button-lg">⚡ Launch Run</button>
     </div>
   </form>
-</section>
+</div>
+
+<script>
+(function () {
+  var tabKnown  = document.getElementById('tab-known');
+  var tabAuto   = document.getElementById('tab-auto');
+  var lblKnown  = document.getElementById('label-known');
+  var lblAuto   = document.getElementById('label-auto');
+  var secKnown  = document.getElementById('section-known');
+  var secAuto   = document.getElementById('section-auto');
+
+  function update() {
+    var isAuto = tabAuto.checked;
+    secKnown.style.display = isAuto ? 'none' : '';
+    secAuto.style.display  = isAuto ? '' : 'none';
+    lblKnown.className = 'mode-tab' + (isAuto ? '' : ' active-known');
+    lblAuto.className  = 'mode-tab' + (isAuto ? ' active-auto' : '');
+  }
+
+  tabKnown.addEventListener('change', update);
+  tabAuto.addEventListener('change', update);
+  update();
+})();
+</script>
 {% endblock %}

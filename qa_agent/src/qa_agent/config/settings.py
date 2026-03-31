@@ -20,6 +20,7 @@ PIPELINE_STAGE_KEYS: tuple[str, ...] = (
     "execution",
     "ui_automation",
     "auto_explore_ui",
+    "page_validator",
     "step_assertions",
     "flow_assertions",
     "api_validation",
@@ -56,6 +57,7 @@ class FlowEngineConfig(BaseModel):
 class PluginsConfig(BaseModel):
     ui_automation: dict[str, Any] = Field(default_factory=dict)
     auto_explore_ui: dict[str, Any] = Field(default_factory=dict)
+    page_validator: dict[str, Any] = Field(default_factory=dict)
     api_validation: dict[str, Any] = Field(default_factory=dict)
     data_validation: dict[str, Any] = Field(default_factory=dict)
     security_validation: dict[str, Any] = Field(default_factory=dict)

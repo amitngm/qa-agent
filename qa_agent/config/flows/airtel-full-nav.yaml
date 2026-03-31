@@ -1,0 +1,145 @@
+flow_key: airtel-full-nav
+flow_version: "1.0.0"
+description: "Airtel Console — full navigation smoke (all sections)"
+browser: chromium
+headless: false
+
+steps:
+  - key: open_login
+    op: navigate
+    url: "{{base_url}}"
+    wait_until: domcontentloaded
+    label: Open login page
+
+  - key: fill_username
+    op: interact
+    action: fill
+    selector: "input[type='text'], input[name='username'], #username, [placeholder*='user' i], [placeholder*='email' i]"
+    text: "{{username}}"
+    label: Fill username
+
+  - key: fill_password
+    op: interact
+    action: fill
+    selector: "input[type='password'], #password, [name='password']"
+    text: "{{password}}"
+    label: Fill password
+
+  - key: click_login
+    op: interact
+    action: click
+    selector: "button[type='submit'], button:has-text('Login'), button:has-text('Sign in'), [type='submit']"
+    label: Click login button
+
+  - key: wait_post_login
+    op: wait
+    timeout_ms: 4000
+    label: Wait for dashboard
+
+  - key: nav_vm
+    op: navigate
+    url: "{{base_url}}/compute/virtual-machines"
+    wait_until: domcontentloaded
+    label: Virtual Machines
+
+  - key: wait_vm
+    op: wait
+    timeout_ms: 2000
+
+  - key: nav_snapshots
+    op: navigate
+    url: "{{base_url}}/compute/snapshots"
+    wait_until: domcontentloaded
+    label: Snapshots
+    optional: true
+
+  - key: nav_k8s
+    op: navigate
+    url: "{{base_url}}/compute/kubernetes-clusters"
+    wait_until: domcontentloaded
+    label: Kubernetes
+    optional: true
+
+  - key: nav_volumes
+    op: navigate
+    url: "{{base_url}}/storage/volumes"
+    wait_until: domcontentloaded
+    label: Volumes
+    optional: true
+
+  - key: nav_vol_snapshots
+    op: navigate
+    url: "{{base_url}}/storage/volume-snapshots"
+    wait_until: domcontentloaded
+    label: Volume Snapshots
+    optional: true
+
+  - key: nav_object_storage
+    op: navigate
+    url: "{{base_url}}/storage/object-storage"
+    wait_until: domcontentloaded
+    label: Object Storage
+    optional: true
+
+  - key: nav_filesystem
+    op: navigate
+    url: "{{base_url}}/storage/file-system"
+    wait_until: domcontentloaded
+    label: File System
+    optional: true
+
+  - key: nav_vpcs
+    op: navigate
+    url: "{{base_url}}/networking/vpcs"
+    wait_until: domcontentloaded
+    label: VPCs
+    optional: true
+
+  - key: nav_security_groups
+    op: navigate
+    url: "{{base_url}}/networking/security-groups"
+    wait_until: domcontentloaded
+    label: Security Groups
+    optional: true
+
+  - key: nav_load_balancers
+    op: navigate
+    url: "{{base_url}}/networking/load-balancers"
+    wait_until: domcontentloaded
+    label: Load Balancers
+    optional: true
+
+  - key: nav_nat
+    op: navigate
+    url: "{{base_url}}/security/nat-gateway"
+    wait_until: domcontentloaded
+    label: NAT Gateway
+    optional: true
+
+  - key: nav_managed_db
+    op: navigate
+    url: "{{base_url}}/managed-databases"
+    wait_until: domcontentloaded
+    label: Managed Databases
+    optional: true
+
+  - key: nav_monitoring
+    op: navigate
+    url: "{{base_url}}/monitoring/monitoring-dashboard"
+    wait_until: domcontentloaded
+    label: Monitoring
+    optional: true
+
+  - key: nav_users
+    op: navigate
+    url: "{{base_url}}/users/cell-users"
+    wait_until: domcontentloaded
+    label: User Management
+    optional: true
+
+  - key: nav_quota
+    op: navigate
+    url: "{{base_url}}/quota-service/project-quota"
+    wait_until: domcontentloaded
+    label: Quota
+    optional: true

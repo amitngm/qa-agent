@@ -11,6 +11,7 @@ from qa_agent.validation.api_models import ApiValidationSummary
 from qa_agent.platform.auto_explore_models import AutoExploreSummary
 from qa_agent.platform.ui_models import UiAutomationSummary
 from qa_agent.validation.data_models import DataValidationSummary
+from qa_agent.validation.page_models import PageValidationSummary
 from qa_agent.validation.security_models import SecurityValidationSummary
 
 
@@ -77,6 +78,7 @@ class ValidatorMetadata(BaseModel):
 
     step_assertions: Optional[AssertionsSummary] = None
     flow_assertions: Optional[AssertionsSummary] = None
+    page_validation: Optional[PageValidationSummary] = None
     api_validation: Optional[ApiValidationSummary] = None
     data_validation: Optional[DataValidationSummary] = None
     security_validation: Optional[SecurityValidationSummary] = None
@@ -179,7 +181,7 @@ def _lift_legacy_top_level(data: MutableMapping[str, Any]) -> None:
 
     if "validator" not in data:
         vm: dict[str, Any] = {}
-        for k in ("step_assertions", "flow_assertions", "api_validation", "data_validation", "security_validation"):
+        for k in ("step_assertions", "flow_assertions", "page_validation", "api_validation", "data_validation", "security_validation"):
             if k in data:
                 vm[k] = data.pop(k)
         if vm:
@@ -213,7 +215,7 @@ def _lift_legacy_top_level(data: MutableMapping[str, Any]) -> None:
         for k in ("execution", "flow_engine_results", "flow_keys", "ui_automation", "auto_explore_ui"):
             data.pop(k, None)
     if "validator" in data:
-        for k in ("step_assertions", "flow_assertions", "api_validation", "data_validation", "security_validation"):
+        for k in ("step_assertions", "flow_assertions", "page_validation", "api_validation", "data_validation", "security_validation"):
             data.pop(k, None)
     if "analyzer" in data:
         data.pop("analysis", None)

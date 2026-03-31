@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Flow Recorder{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>🎥 Flow Recorder</h1>
+  <p class="lead">Run the app manually — every click, fill, and navigation is captured and saved as a reusable test flow.</p>
+</div>
+
+{# ── Start form (shown when idle) ──────────────────────────────── #}
+<div id="start-panel" class="card">
+  <div class="section-header">
+    <span class="section-icon-circle icon-purple">🎬</span>
+    <h2>New recording</h2>
+  </div>
+  <form id="start-form" class="form">
+    <div class="form-row">
+      <label>Flow name
+        <span class="label-hint">Saved as <code>config/flows/&lt;name&gt;.yaml</code></span>
+        <input id="flow-name" name="flow_name" type="text" placeholder="e.g. create-vm-flow" value="my-recorded-flow" required>
+      </label>
+      <label>Application profile
+        <span class="label-hint">Optional — loads base URL automatically</span>
+        <input id="kf-application" name="kf_application" type="text" placeholder="e.g. airtel-console">
+      </label>
+    </div>
+    <label>Start URL
+      <span class="label-hint">Browser opens here — the app you want to record</span>
+      <input id="start-url" name="start_url" type="url" placeholder="https://app.example.com" required>
+    </label>
+    <div class="form-row">
+      <label>Username
+        <input id="rec-username" name="username" type="text" autocomplete="username">
+      </label>
+      <label>Password
+        <input id="rec-password" name="password" type="password" autocomplete="current-password">
+      </label>
+    </div>
+    <label>Browser
+      <select name="browser" id="rec-browser">
+        <option value="chromium" selected>Chromium</option>
+        <option value="firefox">Firefox</option>
+        <option value="webkit">WebKit / Safari</option>
+      </select>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="button button-lg">⏺ Start Recording</button>
+      <p class="hint" style="margin-top:0.75rem;">A browser window will open. Do your thing, then come back here and click <strong>Stop &amp; Save</strong>.</p>
+    </div>
+  </form>
+</div>
+
+{# ── Recording panel (shown while active) ─────────────────────── #}
+<div id="recording-panel" style="display:none">
+
+  <div class="run-title-bar">
+    <h1>Recording…</h1>
+    <span class="badge badge-running" id="rec-status-badge">● active</span>
+    <span class="muted" id="rec-session-id" style="margin-left:auto; font-size:12px;"></span>
+  </div>
+
+  {# Metrics bar #}
+  <div class="metrics-bar">
+    <div class="metric metric-info">
+      <div class="metric-value" id="count-total">0</div>
+      <div class="metric-label">Total steps</div>
+    </div>
+    <div class="metric metric-ok">
+      <div class="metric-value" id="count-nav">0</div>
+      <div class="metric-label">Navigations</div>
+    </div>
+    <div class="metric metric-warn">
+      <div class="metric-value" id="count-interact">0</div>
+      <div class="metric-label">Interactions</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" id="count-assert">0</div>
+      <div class="metric-label">Assertions</div>
+    </div>
+  </div>
+
+  {# Add assertion palette #}
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="section-header">
+      <span class="section-icon-circle icon-yellow">📌</span>
+      <h2>Add assertion at current point</h2>
+    </div>
+    <div class="form form-row" style="gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+      <label style="min-width:160px;">Type
+        <select id="assert-kind">
+          <option value="assert_url">Assert URL contains</option>
+          <option value="assert_visible">Assert element visible</option>
+          <option value="assert_text">Assert element text</option>
+        </select>
+      </label>
+      <label id="assert-selector-wrap" style="flex:1; min-width:140px;">Selector
+        <input id="assert-selector" type="text" placeholder="e.g. h1, .resource-list">
+      </label>
+      <label style="flex:1; min-width:140px;"><span id="assert-contains-label">Contains</span>
+        <input id="assert-contains" type="text" placeholder="text or URL fragment">
+      </label>
+      <label style="flex:1; min-width:120px;">Label (optional)
+        <input id="assert-label-input" type="text" placeholder="e.g. VM list visible">
+      </label>
+      <div style="padding-bottom:1rem;">
+        <button class="button" onclick="addAssertion()">📌 Add</button>
+      </div>
+    </div>
+  </div>
+
+  {# Live step feed #}
+  <div class="card">
+    <div class="section-header">
+      <span class="section-icon-circle icon-blue">📋</span>
+      <h2>Captured steps</h2>
+      <span class="muted" style="margin-left:auto; font-size:12px;">Auto-refreshing every second</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table table-compact" id="steps-table">
+        <thead>
+          <tr><th>#</th><th>Op</th><th>Details</th><th>Label</th></tr>
+        </thead>
+        <tbody id="steps-tbody">
+          <tr id="empty-row"><td colspan="4" class="empty">No steps captured yet — do something in the browser.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Actions #}
+  <div class="actions-inline">
+    <button class="button button-danger" onclick="stopRecording()">⏹ Stop &amp; Save</button>
+    <button class="button button-secondary" onclick="discardRecording()">🗑 Discard</button>
+  </div>
+</div>
+
+{# ── Saved panel ──────────────────────────────────────────────── #}
+<div id="saved-panel" style="display:none">
+  <div class="card">
+    <div class="section-header">
+      <span class="section-icon-circle icon-green">✅</span>
+      <h2>Flow saved</h2>
+    </div>
+    <dl class="kv">
+      <dt>Flow key</dt><dd id="saved-flow-key">—</dd>
+      <dt>Saved to</dt><dd id="saved-path" style="font-family:monospace; font-size:12px;">—</dd>
+      <dt>Steps captured</dt><dd id="saved-steps">—</dd>
+    </dl>
+    <div class="actions-inline" style="margin-top:1.25rem;">
+      <a class="button" href="/ui/run" id="run-link">▶ Run this flow</a>
+      <button class="button button-secondary" onclick="showYaml()">📄 View YAML</button>
+      <a class="button button-secondary" href="/ui/record">🎥 Record another</a>
+    </div>
+  </div>
+
+  <details class="section" id="yaml-panel" style="display:none">
+    <summary>Generated YAML</summary>
+    <div class="section-body">
+      <pre class="json-snippet" id="yaml-content" style="max-height:32rem;"></pre>
+    </div>
+  </details>
+</div>
+
+<script>
+(function () {
+  var sessionId = null;
+  var pollInterval = null;
+  var renderedCount = 0;
+
+  /* ── Start form ──────────────────────────────────────────────── */
+  document.getElementById('start-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var flowName  = document.getElementById('flow-name').value.trim();
+    var startUrl  = document.getElementById('start-url').value.trim();
+    var username  = document.getElementById('rec-username').value;
+    var password  = document.getElementById('rec-password').value;
+    var browser   = document.getElementById('rec-browser').value;
+
+    var fd = new FormData();
+    fd.append('flow_name', flowName);
+    fd.append('start_url', startUrl);
+    fd.append('username', username);
+    fd.append('password', password);
+    fd.append('browser', browser);
+
+    fetch('/ui/record/start', { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { alert('Error: ' + data.error); return; }
+        sessionId = data.session_id;
+        document.getElementById('rec-session-id').textContent = 'session: ' + sessionId;
+        document.getElementById('start-panel').style.display = 'none';
+        document.getElementById('recording-panel').style.display = '';
+        startPolling();
+      });
+  });
+
+  /* ── Polling ─────────────────────────────────────────────────── */
+  function startPolling() {
+    pollInterval = setInterval(fetchEvents, 1000);
+  }
+
+  function fetchEvents() {
+    if (!sessionId) return;
+    fetch('/ui/record/' + sessionId + '/events')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        renderSteps(data.steps || []);
+        if (data.status === 'error') {
+          document.getElementById('rec-status-badge').textContent = '✗ error';
+          document.getElementById('rec-status-badge').className = 'badge badge-failed';
+          clearInterval(pollInterval);
+        }
+      });
+  }
+
+  /* ── Render steps ────────────────────────────────────────────── */
+  function renderSteps(steps) {
+    var tbody = document.getElementById('steps-tbody');
+    var newSteps = steps.slice(renderedCount);
+    if (newSteps.length === 0) return;
+
+    if (renderedCount === 0) {
+      document.getElementById('empty-row').style.display = 'none';
+    }
+
+    newSteps.forEach(function (step, idx) {
+      var i = renderedCount + idx + 1;
+      var op = step.op || '';
+      var details = '';
+      if (op === 'navigate') details = '<code>' + esc(step.url || '') + '</code>';
+      else if (op === 'interact') details = '<code>' + esc(step.action || '') + '</code> ' + esc(step.selector || '') +
+        (step.text ? ' = <em>' + esc(step.text.slice(0, 40)) + '</em>' : '');
+      else if (op === 'assert_url') details = 'URL contains <code>' + esc(step.contains || '') + '</code>';
+      else if (op === 'assert_visible') details = 'visible: <code>' + esc(step.selector || '') + '</code>';
+      else if (op === 'assert_text') details = esc(step.selector || '') + ' contains <em>' + esc(step.contains || '') + '</em>';
+      else details = JSON.stringify(step).slice(0, 80);
+
+      var opBadge = opClass(op);
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + i + '</td><td>' + opBadge + '</td><td>' + details + '</td><td class="muted">' + esc(step.label || '') + '</td>';
+      tbody.appendChild(tr);
+    });
+    renderedCount = steps.length;
+
+    // Update counters
+    var nav = 0, inter = 0, assrt = 0;
+    steps.forEach(function (s) {
+      if (s.op === 'navigate') nav++;
+      else if (s.op === 'interact') inter++;
+      else if ((s.op || '').startsWith('assert')) assrt++;
+    });
+    document.getElementById('count-total').textContent = steps.length;
+    document.getElementById('count-nav').textContent = nav;
+    document.getElementById('count-interact').textContent = inter;
+    document.getElementById('count-assert').textContent = assrt;
+  }
+
+  function opClass(op) {
+    if (op === 'navigate') return '<span class="badge badge-running">navigate</span>';
+    if (op === 'interact') return '<span class="badge badge-partial">interact</span>';
+    if ((op || '').startsWith('assert')) return '<span class="badge badge-succeeded">assert</span>';
+    return '<span class="badge">' + esc(op) + '</span>';
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Assert palette ──────────────────────────────────────────── */
+  document.getElementById('assert-kind').addEventListener('change', function () {
+    var kind = this.value;
+    var sw = document.getElementById('assert-selector-wrap');
+    var cl = document.getElementById('assert-contains-label');
+    sw.style.display = (kind === 'assert_url') ? 'none' : '';
+    cl.textContent = (kind === 'assert_url') ? 'URL fragment' : 'Text contains';
+  });
+  // Init
+  document.getElementById('assert-selector-wrap').style.display = 'none';
+
+  window.addAssertion = function () {
+    if (!sessionId) return;
+    var kind = document.getElementById('assert-kind').value;
+    var selector = document.getElementById('assert-selector').value.trim();
+    var contains = document.getElementById('assert-contains').value.trim();
+    var label = document.getElementById('assert-label-input').value.trim();
+    var fd = new FormData();
+    fd.append('kind', kind);
+    fd.append('selector', selector);
+    fd.append('contains', contains);
+    fd.append('label', label);
+    fetch('/ui/record/' + sessionId + '/assert', { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) fetchEvents();
+      });
+  };
+
+  /* ── Stop / Discard ──────────────────────────────────────────── */
+  window.stopRecording = function () {
+    if (!sessionId) return;
+    clearInterval(pollInterval);
+    fetch('/ui/record/' + sessionId + '/stop', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        document.getElementById('recording-panel').style.display = 'none';
+        document.getElementById('saved-panel').style.display = '';
+        document.getElementById('saved-flow-key').textContent = data.flow_key || '—';
+        document.getElementById('saved-path').textContent = data.saved_path || '—';
+        document.getElementById('saved-steps').textContent = data.steps_captured || '—';
+        document.getElementById('run-link').href = '/ui/run';
+      });
+  };
+
+  window.discardRecording = function () {
+    if (!confirm('Discard this recording?')) return;
+    clearInterval(pollInterval);
+    sessionId = null;
+    renderedCount = 0;
+    document.getElementById('steps-tbody').innerHTML = '<tr id="empty-row"><td colspan="4" class="empty">No steps captured yet.</td></tr>';
+    document.getElementById('recording-panel').style.display = 'none';
+    document.getElementById('start-panel').style.display = '';
+  };
+
+  /* ── View YAML ───────────────────────────────────────────────── */
+  window.showYaml = function () {
+    if (!sessionId) return;
+    fetch('/ui/record/' + sessionId + '/yaml')
+      .then(function (r) { return r.text(); })
+      .then(function (text) {
+        document.getElementById('yaml-content').textContent = text;
+        document.getElementById('yaml-panel').style.display = '';
+        document.getElementById('yaml-panel').open = true;
+        document.getElementById('yaml-panel').scrollIntoView({ behavior: 'smooth' });
+      });
+  };
+})();
+</script>
+{% endblock %}

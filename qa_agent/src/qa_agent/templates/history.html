@@ -1,35 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Run history{% endblock %}
 {% block content %}
-<section class="card">
+
+<div class="page-header">
   <h1>Run history</h1>
-  <p class="lead">Recent runs from configured storage. Rows link to status and report views.</p>
+  <p class="lead">Recent runs from configured storage.</p>
+</div>
 
-  {% if empty_reason %}
-  <div class="callout callout-muted">
-    <p>{{ empty_reason }}</p>
-  </div>
+{% if empty_reason %}
+<div class="callout callout-muted">
+  <p>{{ empty_reason }}</p>
+  {% if not has_disk %}
+  <p class="hint" style="margin:0.35rem 0 0;">Set <code>runs_storage_root</code> in <code>config/default.yaml</code> to enable run persistence.</p>
   {% endif %}
+</div>
+{% endif %}
 
-  {% if rows %}
-  <div class="table-wrap">
+{% if rows %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-wrap" style="margin:0; border:none; border-radius:0;">
     <table class="table">
       <thead>
         <tr>
           <th>Run ID</th>
-          <th>Flow</th>
+          <th>Flow / Target</th>
+          <th>Mode</th>
           <th>Status</th>
           <th>Started</th>
+          <th>Steps</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for row in rows %}
         <tr>
-          <td><code class="truncate">{{ row.run_id }}</code></td>
-          <td>{{ row.flow }}</td>
+          <td><span class="history-run-id">{{ row.run_id[:20] }}…</span></td>
+          <td style="max-width:18rem; word-break:break-all; font-size:13px;">{{ row.flow }}</td>
+          <td>
+            {% if row.run_mode == 'auto_explore' %}
+              <span class="mode-badge mode-auto" style="font-size:11px;">🔍 Auto</span>
+            {% else %}
+              <span class="mode-badge mode-known" style="font-size:11px;">🔁 Known</span>
+            {% endif %}
+          </td>
           <td><span class="badge badge-{{ row.status }}">{{ row.status }}</span></td>
-          <td>{{ row.started_at }}</td>
+          <td class="muted nowrap" style="font-size:13px;">{{ row.started_at }}</td>
+          <td class="muted" style="font-size:13px;">{{ row.step_count if row.step_count is defined else '—' }}</td>
           <td class="nowrap">
             <a href="/ui/runs/{{ row.run_id }}/status">Status</a>
             ·
@@ -40,12 +56,17 @@
       </tbody>
     </table>
   </div>
-  {% elif not empty_reason %}
-  <p class="empty">No runs found.</p>
-  {% endif %}
+</div>
+{% elif not empty_reason %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-state-icon">📂</div>
+    <p>No runs found.</p>
+  </div>
+</div>
+{% endif %}
 
-  <p class="actions-inline">
-    <a class="button" href="/ui/run">Run QA</a>
-  </p>
-</section>
+<div class="actions-inline">
+  <a class="button" href="/ui/run">New Run</a>
+</div>
 {% endblock %}

@@ -19,6 +19,9 @@ venv/
 qa_agent/.venv/
 qa_agent/venv/
 
+## Run artifacts (created when running from qa_agent/ cwd)
+qa_agent/qa_agent/
+
 ## OS / Editor
 .DS_Store
 .idea/
