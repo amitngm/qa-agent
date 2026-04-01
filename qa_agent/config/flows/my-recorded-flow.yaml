@@ -1,0 +1,358 @@
+flow_key: my-recorded-flow
+flow_version: 1.0.0
+description: 'Recorded flow: my-recorded-flow'
+recorded_at: '2026-03-31T16:37:45.742714+00:00'
+source: recorded
+browser: chromium
+headless: false
+parameters:
+- name: testvm_001
+  type: string
+  default: testvm-001
+- name: 'on'
+  type: string
+  default: 'on'
+- name: var_3
+  type: string
+  default: /
+- name: base_url
+  type: string
+  default: https://console-dev.coredge.internal/
+- name: username
+  type: string
+  default: qauser2494@yopmail.com
+- name: password
+  type: string
+  default: ''
+steps:
+- key: step_001
+  op: navigate
+  url: '{{base_url}}/'
+  wait_until: domcontentloaded
+  label: Navigate to /
+- key: step_002
+  op: assert_url
+  contains: /
+  label: 'Assert URL: /'
+  optional: true
+- key: step_003
+  op: navigate
+  url: https://auth-dev.coredge.internal/auth/realms/coredge-cloud/protocol/openid-connect/auth?client_id=controller&redirect_uri=https%3A%2F%2Fconsole-dev.coredge.internal%2F&state=3f62eb71-06cb-4a1a-85e4-9425bc173a34&response_mode=fragment&response_type=code&scope=openid&nonce=901d7afe-cdb2-4383-8ad3-3edf84d781ba&code_challenge=Zs4GOgeyDn59VVO2If2vGOE7WuAYKCMp8FMCB8n2U1I&code_challenge_method=S256
+  wait_until: domcontentloaded
+  label: Navigate to /auth/realms/coredge-cloud/protocol/openid-connect/auth
+- key: step_004
+  op: assert_url
+  contains: /openid-connect/auth
+  label: 'Assert URL: /openid-connect/auth'
+  optional: true
+- key: step_005
+  op: interact
+  action: fill
+  selector: '#username'
+  label: qauser2434@coredge.io
+  text: '{{username}}'
+- key: step_006
+  op: interact
+  action: fill
+  selector: '#password'
+  label: Welcome@123
+  text: '{{password}}'
+- key: step_007
+  op: navigate
+  url: https://auth-dev.coredge.internal/auth/realms/coredge-cloud/login-actions/authenticate?session_code=ED3LlKCFk5Nrr7O_pi4delBDO0ucL6nRiyk9p7Z-B_8&execution=49728291-f9ec-48b3-b98a-e46108b4d566&client_id=controller&tab_id=4b3xd4HjPcM
+  wait_until: domcontentloaded
+  label: Navigate to /auth/realms/coredge-cloud/login-actions/authenticate
+- key: step_008
+  op: assert_url
+  contains: /login-actions/authenticate
+  label: 'Assert URL: /login-actions/authenticate'
+  optional: true
+- key: step_009
+  op: navigate
+  url: https://auth-dev.coredge.internal/auth/realms/coredge-cloud/login-actions/authenticate?execution=49728291-f9ec-48b3-b98a-e46108b4d566&client_id=controller&tab_id=4b3xd4HjPcM
+  wait_until: domcontentloaded
+  label: Navigate to /auth/realms/coredge-cloud/login-actions/authenticate
+- key: step_010
+  op: assert_url
+  contains: /login-actions/authenticate
+  label: 'Assert URL: /login-actions/authenticate'
+  optional: true
+- key: step_011
+  op: navigate
+  url: https://auth-dev.coredge.internal/auth/realms/coredge-cloud/login-actions/authenticate?session_code=PSYYOZ9Ge2mI-R5Po3XCuHeGIwC6CcGJhddnwPf-Ty4&execution=49728291-f9ec-48b3-b98a-e46108b4d566&client_id=controller&tab_id=4b3xd4HjPcM
+  wait_until: domcontentloaded
+  label: Navigate to /auth/realms/coredge-cloud/login-actions/authenticate
+- key: step_012
+  op: assert_url
+  contains: /login-actions/authenticate
+  label: 'Assert URL: /login-actions/authenticate'
+  optional: true
+- key: step_013
+  op: navigate
+  url: https://auth-dev.coredge.internal/auth/realms/coredge-cloud/login-actions/authenticate?execution=49728291-f9ec-48b3-b98a-e46108b4d566&client_id=controller&tab_id=4b3xd4HjPcM
+  wait_until: domcontentloaded
+  label: Navigate to /auth/realms/coredge-cloud/login-actions/authenticate
+- key: step_014
+  op: assert_url
+  contains: /login-actions/authenticate
+  label: 'Assert URL: /login-actions/authenticate'
+  optional: true
+- key: step_015
+  op: interact
+  action: fill
+  selector: '#username'
+  label: qauser2494@yopmail.com
+  text: '{{username}}'
+- key: step_016
+  op: interact
+  action: fill
+  selector: '#password'
+  label: Welcome@123
+  text: '{{password}}'
+- key: step_017
+  op: interact
+  action: click
+  selector: div.wrapper > div.login-pf-page.background-container > div.card-pf
+  label: 'Sign in to your account
+
+    Username or Email ID
+
+    Invalid usernam'
+- key: step_018
+  op: navigate
+  url: '{{base_url}}/'
+  wait_until: domcontentloaded
+  label: Navigate to /
+- key: step_019
+  op: assert_url
+  contains: /
+  label: 'Assert URL: /'
+  optional: true
+- key: step_020
+  op: navigate
+  url: '{{base_url}}/'
+  wait_until: domcontentloaded
+  label: Navigate to /
+- key: step_021
+  op: assert_url
+  contains: /
+  label: 'Assert URL: /'
+  optional: true
+- key: step_022
+  op: navigate
+  url: '{{base_url}}/select-domain'
+  wait_until: domcontentloaded
+  label: Navigate to /select-domain
+- key: step_023
+  op: assert_url
+  contains: /select-domain
+  label: 'Assert URL: /select-domain'
+  optional: true
+- key: step_024
+  op: navigate
+  url: '{{base_url}}/project/overview'
+  wait_until: domcontentloaded
+  label: Navigate to /project/overview
+- key: step_025
+  op: assert_url
+  contains: /project/overview
+  label: 'Assert URL: /project/overview'
+  optional: true
+- key: step_026
+  op: interact
+  action: click
+  selector: '[data-testid="Compute"]'
+  label: Compute
+- key: step_027
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines
+- key: step_028
+  op: assert_url
+  contains: /compute/virtual-machines
+  label: 'Assert URL: /compute/virtual-machines'
+  optional: true
+- key: step_029
+  op: interact
+  action: click
+  selector: a:has-text("Virtual Machines")
+  label: Virtual Machines
+- key: step_030
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines/create'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines/create
+- key: step_031
+  op: assert_url
+  contains: /virtual-machines/create
+  label: 'Assert URL: /virtual-machines/create'
+  optional: true
+- key: step_032
+  op: interact
+  action: click
+  selector: button:has-text("Create Virtual Machine")
+  label: Create Virtual Machine
+- key: step_033
+  op: interact
+  action: click
+  selector: '[data-testid="network-select"]'
+  label: apt-331-4
+- key: step_034
+  op: interact
+  action: click
+  selector: '[data-testid="network-select-option"]'
+  label: vpc
+- key: step_035
+  op: interact
+  action: click
+  selector: '[data-testid="availability-zone-select"]'
+  label: nova
+- key: step_036
+  op: interact
+  action: click
+  selector: '[data-testid="availability-zone-select-option"]'
+  label: nova
+- key: step_037
+  op: interact
+  action: click
+  selector: '[data-testid="subnet-select"]'
+  label: subnet-qa
+- key: step_038
+  op: interact
+  action: click
+  selector: '[data-testid="subnet-select-option"]'
+  label: subnet-qa
+- key: step_039
+  op: interact
+  action: click
+  selector: div.p-6 > div.MuiStack-root.css-yd8sa2 > div.space-y-3
+  label: 'Source Type*
+
+    Public Image
+
+    Snapshot'
+- key: step_040
+  op: interact
+  action: click
+  selector: '#image-type-_r_15_-snapshot'
+  label: snapshot
+- key: step_041
+  op: interact
+  action: click
+  selector: tr.group.transition-colors > td.px-4.py-4 > button.h-4.w-4
+  label: button
+- key: step_042
+  op: interact
+  action: click
+  selector: div.w-full > div.border.border-border > div.overflow-x-auto.relative
+  label: "Name\tCreated\n\n\t\nwdfr\n\t1 day ago\n\n\t\ntest-snap-vm2\n\t1 day ago"
+- key: step_043
+  op: interact
+  action: click
+  selector: tr.group.transition-colors > td.px-4.py-4 > button.h-4.w-4
+  label: button
+- key: step_044
+  op: interact
+  action: click
+  selector: tr.bg-muted/50 > th.w-12.px-4 > button.h-4.w-4
+  label: button
+- key: step_045
+  op: interact
+  action: click
+  selector: tr.group.transition-colors > td.px-4.py-4 > button.h-4.w-4
+  label: button
+- key: step_046
+  op: interact
+  action: click
+  selector: '[data-testid="type-select"]'
+  label: General Compute
+- key: step_047
+  op: interact
+  action: click
+  selector: '[data-testid="flavor-select"]'
+  label: '4c.4g ( vCPU: 4, RAM: 4 GiB )'
+- key: step_048
+  op: interact
+  action: click
+  selector: '[data-testid="flavor-select-option"]'
+  label: '4c.4g ( vCPU: 4, RAM: 4 GiB )'
+- key: step_049
+  op: interact
+  action: fill
+  selector: '[data-testid="instance-name-input"]'
+  label: testvm-001
+  text: '{{testvm_001}}'
+- key: step_050
+  op: interact
+  action: click
+  selector: '[data-testid="instance-count-increment"]'
+  label: button
+- key: step_051
+  op: interact
+  action: click
+  selector: '[data-testid="instance-count-decrement"]'
+  label: button
+- key: step_052
+  op: interact
+  action: fill
+  selector: input[type="checkbox"]
+  label: 'on'
+  text: '{{on}}'
+- key: step_053
+  op: interact
+  action: click
+  selector: '[data-testid="volume-type-id-select"]'
+  label: __DEFAULT__
+- key: step_054
+  op: interact
+  action: click
+  selector: '[data-testid="volume-type-id-select-option"]'
+  label: __DEFAULT__
+- key: step_055
+  op: interact
+  action: fill
+  selector: '[data-testid="mount-path-input"]'
+  label: /
+  text: '{{var_3}}'
+- key: step_056
+  op: interact
+  action: click
+  selector: '[data-testid="btn-add-volume"]'
+  label: Add
+- key: step_057
+  op: interact
+  action: click
+  selector: '[data-testid="sec-group-id-multi-select"]'
+  label: Please select security groups
+- key: step_058
+  op: interact
+  action: click
+  selector: '[data-testid="sec-group-id-multi-select-option"]'
+  label: test_30
+- key: step_059
+  op: interact
+  action: click
+  selector: div.MuiBox-root.css-1d0h6nv > div.MuiContainer-root.MuiContainer-maxWidthLg
+    > div.grid.grid-cols-1
+  label: '1
+
+    Network Details
+
+
+    Connect virtual machines within the same '
+- key: step_060
+  op: interact
+  action: click
+  selector: button:has-text("Create Virtual Machine")
+  label: Create Virtual Machine
+- key: step_061
+  op: interact
+  action: click
+  selector: tr.group.transition-colors > td.px-4.py-4 > button.h-4.w-4
+  label: button
+- key: step_062
+  op: interact
+  action: click
+  selector: button:has-text("Create Virtual Machine")
+  label: Create Virtual Machine
