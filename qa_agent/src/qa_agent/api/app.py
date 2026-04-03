@@ -7,6 +7,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from qa_agent.api.buddy_routes import router as buddy_router
 from qa_agent.api.recorder_routes import router as recorder_router
 from qa_agent.api.routes import router as api_router
 from qa_agent.api.ui_routes import router as ui_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(api_router)
     app.include_router(ui_router)
     app.include_router(recorder_router)
+    app.include_router(buddy_router)
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     return app

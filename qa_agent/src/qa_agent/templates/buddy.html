@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TestBuddy · QA Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* ── Layout ─────────────────────────────────────── */
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .site-header { flex-shrink: 0; }
+    .buddy-shell {
+      display: flex; flex: 1; overflow: hidden;
+      background: var(--bg, #f8f9fb);
+    }
+
+    /* ── Sidebar ─────────────────────────────────────── */
+    .buddy-sidebar {
+      width: 260px; flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e8eaed;
+      display: flex; flex-direction: column;
+      padding: 16px 0;
+    }
+    .sidebar-section { padding: 0 16px 12px; }
+    .sidebar-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #9aa0ad; margin-bottom: 8px;
+    }
+    .role-select {
+      width: 100%; padding: 6px 10px; border: 1px solid #dde1e7;
+      border-radius: 8px; font-size: 13px; background: #f8f9fb;
+      color: #1a1d23; outline: none;
+    }
+    .role-select:focus { border-color: #6c5ce7; }
+    .new-chat-btn {
+      width: 100%; margin: 0 0 12px;
+      padding: 9px 14px;
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      color: #fff; font-size: 13px; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer;
+      transition: opacity .15s;
+    }
+    .new-chat-btn:hover { opacity: .88; }
+
+    .tool-list { overflow-y: auto; flex: 1; padding: 0 16px; }
+    .tool-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0; font-size: 12px; color: #555;
+    }
+    .tool-badge {
+      padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;
+      flex-shrink: 0;
+    }
+    .tool-badge.read       { background: #d4f5e9; color: #1a7a4a; }
+    .tool-badge.write      { background: #fff0d4; color: #8a5500; }
+    .tool-badge.destructive{ background: #fde8e8; color: #b91c1c; }
+
+    /* ── Chat area ───────────────────────────────────── */
+    .buddy-main {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .chat-header {
+      padding: 16px 24px; border-bottom: 1px solid #e8eaed;
+      background: #fff; flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .chat-header-icon {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .chat-header-info h2 { font-size: 15px; font-weight: 700; margin: 0; }
+    .chat-header-info p  { font-size: 12px; color: #9aa0ad; margin: 0; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #34d399; margin-left: auto; flex-shrink: 0;
+    }
+    .status-dot.thinking { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Messages ────────────────────────────────────── */
+    .messages {
+      flex: 1; overflow-y: auto; padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .msg {
+      max-width: 78%; display: flex; flex-direction: column; gap: 4px;
+    }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.buddy { align-self: flex-start; align-items: flex-start; }
+
+    .msg-bubble {
+      padding: 12px 16px; border-radius: 16px;
+      font-size: 14px; line-height: 1.6; white-space: pre-wrap;
+    }
+    .msg.user  .msg-bubble {
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      color: #fff; border-bottom-right-radius: 4px;
+    }
+    .msg.buddy .msg-bubble {
+      background: #fff; color: #1a1d23;
+      border: 1px solid #e8eaed; border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .msg-time { font-size: 10px; color: #b0b8c8; }
+
+    /* Tool call card */
+    .tool-card {
+      background: #f8f9fb; border: 1px solid #e8eaed;
+      border-left: 3px solid #6c5ce7;
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 12px; font-family: 'JetBrains Mono', monospace;
+      max-width: 500px;
+    }
+    .tool-card.write   { border-left-color: #f59e0b; }
+    .tool-card.destructive { border-left-color: #ef4444; }
+    .tool-card-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 6px; cursor: pointer;
+    }
+    .tool-card-name { font-weight: 600; color: #374151; font-size: 12px; }
+    .tool-card-toggle { margin-left: auto; font-size: 11px; color: #9aa0ad; }
+    .tool-card-body { color: #555; overflow: hidden; }
+    .tool-card-body.collapsed { max-height: 0; }
+    .tool-card-body pre {
+      margin: 0; white-space: pre-wrap; word-break: break-all;
+      font-size: 11px; max-height: 200px; overflow-y: auto;
+    }
+    .tool-result-ok   { color: #059669; }
+    .tool-result-fail { color: #dc2626; }
+
+    /* Approval card */
+    .approval-card {
+      background: #fffbeb; border: 1px solid #fcd34d;
+      border-radius: 12px; padding: 16px 20px;
+      max-width: 480px;
+    }
+    .approval-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 6px; color: #92400e; }
+    .approval-card p  { font-size: 13px; color: #78350f; margin: 0 0 14px; }
+    .approval-meta {
+      display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .approval-meta span {
+      padding: 2px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 600;
+      background: #fde68a; color: #78350f;
+    }
+    .approval-actions { display: flex; gap: 10px; }
+    .btn-approve {
+      padding: 8px 20px; background: #6c5ce7; color: #fff;
+      border: none; border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+    }
+    .btn-approve:hover { background: #5a4bd1; }
+    .btn-deny {
+      padding: 8px 20px; background: #f3f4f6; color: #374151;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-deny:hover { background: #e5e7eb; }
+
+    /* Typing indicator */
+    .typing { display: flex; align-items: center; gap: 4px; padding: 10px 14px; }
+    .typing span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #a29bfe; display: inline-block;
+      animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: .2s; }
+    .typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+    /* Welcome */
+    .welcome {
+      text-align: center; margin: auto;
+      color: #9aa0ad; padding: 40px 24px;
+    }
+    .welcome-icon { font-size: 56px; margin-bottom: 16px; }
+    .welcome h2 { font-size: 20px; font-weight: 700; color: #374151; margin: 0 0 8px; }
+    .welcome p  { font-size: 14px; line-height: 1.6; max-width: 440px; margin: 0 auto 24px; }
+    .suggestion-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .suggestion {
+      padding: 8px 14px; background: #fff; border: 1px solid #e8eaed;
+      border-radius: 20px; font-size: 12px; cursor: pointer; color: #374151;
+      transition: all .15s;
+    }
+    .suggestion:hover { border-color: #6c5ce7; color: #6c5ce7; background: #f5f3ff; }
+
+    /* Input bar */
+    .input-bar {
+      padding: 16px 24px; background: #fff;
+      border-top: 1px solid #e8eaed; flex-shrink: 0;
+    }
+    .input-row {
+      display: flex; gap: 10px; align-items: flex-end;
+      background: #f8f9fb; border: 1.5px solid #e8eaed;
+      border-radius: 14px; padding: 10px 14px;
+      transition: border-color .15s;
+    }
+    .input-row:focus-within { border-color: #6c5ce7; }
+    #chat-input {
+      flex: 1; border: none; background: transparent;
+      font-size: 14px; resize: none; outline: none;
+      font-family: inherit; color: #1a1d23;
+      max-height: 120px; min-height: 22px;
+    }
+    .send-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      border: none; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; transition: opacity .15s;
+    }
+    .send-btn:hover { opacity: .85; }
+    .send-btn:disabled { opacity: .4; cursor: default; }
+
+    /* Scrollbar */
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="brand">
+      <a href="/ui/run"><span class="brand-icon">⚡</span> QA Agent</a>
+    </div>
+    <nav class="nav" aria-label="Main">
+      <a href="/ui/run">New Run</a>
+      <a href="/ui/record">Recorder</a>
+      <a href="/ui/history">History</a>
+      <a href="/buddy" class="active">TestBuddy</a>
+    </nav>
+  </header>
+
+  <div class="buddy-shell">
+    <!-- Sidebar -->
+    <aside class="buddy-sidebar">
+      <div class="sidebar-section">
+        <button class="new-chat-btn" onclick="newSession()">+ New Chat</button>
+        <div class="sidebar-label">Your Role</div>
+        <select class="role-select" id="role-select" onchange="newSession()">
+          <option value="viewer">Viewer (read only)</option>
+          <option value="tester" selected>Tester (read + write)</option>
+          <option value="operator">Operator (+ destructive)</option>
+          <option value="admin">Admin (no approval)</option>
+        </select>
+      </div>
+      <div class="sidebar-section" style="margin-top:16px">
+        <div class="sidebar-label">Available Tools</div>
+      </div>
+      <div class="tool-list" id="tool-list">
+        <div style="font-size:12px;color:#b0b8c8">Loading tools…</div>
+      </div>
+    </aside>
+
+    <!-- Main chat -->
+    <main class="buddy-main">
+      <div class="chat-header">
+        <div class="chat-header-icon">🤖</div>
+        <div class="chat-header-info">
+          <h2>TestBuddy</h2>
+          <p id="session-label">No session</p>
+        </div>
+        <div class="status-dot" id="status-dot"></div>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">🤖</div>
+          <h2>TestBuddy</h2>
+          <p>Your AI platform testing assistant. Ask me to investigate issues,
+             check services, query databases, inspect pods, or run health checks.</p>
+          <div class="suggestion-grid">
+            <span class="suggestion" onclick="send('Why is my service unhealthy? Check all pods in default namespace')">Why is my service unhealthy?</span>
+            <span class="suggestion" onclick="send('List all namespaces in the cluster')">List all namespaces</span>
+            <span class="suggestion" onclick="send('Check health of http://localhost:8080')">Check service health</span>
+            <span class="suggestion" onclick="send('Show me recent warning events in default namespace')">Recent K8s warnings</span>
+            <span class="suggestion" onclick="send('List all database connections configured')">What DBs are connected?</span>
+            <span class="suggestion" onclick="send('Show available tools')">What can you do?</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-bar">
+        <div class="input-row">
+          <textarea id="chat-input" placeholder="Ask TestBuddy anything…" rows="1"
+            onkeydown="onKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send">▶</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let sessionId = null;
+    let isThinking = false;
+
+    // ── Init ────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTools();
+      newSession();
+    });
+
+    async function loadTools() {
+      try {
+        const res = await fetch('/buddy/tools');
+        const data = await res.json();
+        const list = document.getElementById('tool-list');
+        list.innerHTML = data.tools.map(t => `
+          <div class="tool-item">
+            <span class="tool-badge ${t.risk_level}">${t.risk_level}</span>
+            <span title="${t.description}">${t.name}</span>
+          </div>`).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function newSession() {
+      const role = document.getElementById('role-select').value;
+      try {
+        const res = await fetch('/buddy/sessions', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({user: 'user', role})
+        });
+        const data = await res.json();
+        sessionId = data.session_id;
+        document.getElementById('session-label').textContent =
+          `Session · ${data.role} · ${data.session_id.slice(0,8)}`;
+        clearMessages();
+      } catch(e) { alert('Failed to create session: ' + e); }
+    }
+
+    // ── Message rendering ───────────────────────────────
+
+    function clearMessages() {
+      const msgs = document.getElementById('messages');
+      msgs.innerHTML = `<div class="welcome" id="welcome">
+        <div class="welcome-icon">🤖</div>
+        <h2>TestBuddy</h2>
+        <p>Your AI platform testing assistant. Ask me to investigate issues,
+           check services, query databases, inspect pods, or run health checks.</p>
+        <div class="suggestion-grid">
+          <span class="suggestion" onclick="send('Why is my service unhealthy? Check all pods in default namespace')">Why is my service unhealthy?</span>
+          <span class="suggestion" onclick="send('List all namespaces in the cluster')">List all namespaces</span>
+          <span class="suggestion" onclick="send('Check health of http://localhost:8080')">Check service health</span>
+          <span class="suggestion" onclick="send('Show me recent warning events in default namespace')">Recent K8s warnings</span>
+          <span class="suggestion" onclick="send('List all database connections configured')">What DBs are connected?</span>
+          <span class="suggestion" onclick="send(\'What can you do?\')">What can you do?</span>
+        </div>
+      </div>`;
+    }
+
+    function hideWelcome() {
+      const w = document.getElementById('welcome');
+      if (w) w.remove();
+    }
+
+    function appendUserMsg(text) {
+      hideWelcome();
+      const msgs = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'msg user';
+      div.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div>
+        <div class="msg-time">${nowStr()}</div>`;
+      msgs.appendChild(div);
+      scrollBottom();
+    }
+
+    function createBuddyMsg() {
+      hideWelcome();
+      const msgs = document.getElementById('messages');
+      const wrap = document.createElement('div');
+      wrap.className = 'msg buddy';
+
+      const typing = document.createElement('div');
+      typing.className = 'msg-bubble';
+      typing.innerHTML = `<div class="typing"><span></span><span></span><span></span></div>`;
+      typing.id = 'typing-bubble';
+
+      const time = document.createElement('div');
+      time.className = 'msg-time';
+      time.textContent = nowStr();
+
+      wrap.appendChild(typing);
+      wrap.appendChild(time);
+      msgs.appendChild(wrap);
+      scrollBottom();
+      return wrap;
+    }
+
+    let _textBubble = null;
+
+    function appendText(msgWrap, text) {
+      const typing = msgWrap.querySelector('#typing-bubble');
+      if (typing) typing.remove();
+
+      if (!_textBubble) {
+        _textBubble = document.createElement('div');
+        _textBubble.className = 'msg-bubble';
+        msgWrap.insertBefore(_textBubble, msgWrap.lastChild);
+      }
+      _textBubble.textContent += text;
+      scrollBottom();
+    }
+
+    function appendToolCard(msgWrap, event) {
+      const typing = msgWrap.querySelector('#typing-bubble');
+      if (typing) typing.remove();
+
+      const risk = event.risk || 'read';
+      const isResult = event.type === 'tool_result';
+      const card = document.createElement('div');
+      card.className = `tool-card ${risk}`;
+
+      const icon = isResult ? (event.ok ? '✓' : '✗') : '⟳';
+      const statusClass = isResult ? (event.ok ? 'tool-result-ok' : 'tool-result-fail') : '';
+      const body = isResult ? (event.data || '') : JSON.stringify(event.params || {}, null, 2);
+
+      card.innerHTML = `
+        <div class="tool-card-header" onclick="toggleCard(this)">
+          <span style="font-size:12px">${icon}</span>
+          <span class="tool-card-name ${statusClass}">${event.name}</span>
+          <span class="tool-card-toggle">▼ show</span>
+        </div>
+        <div class="tool-card-body collapsed">
+          <pre>${escHtml(body.slice(0, 1000))}</pre>
+        </div>`;
+      msgWrap.insertBefore(card, msgWrap.lastChild);
+      scrollBottom();
+    }
+
+    function appendApprovalCard(msgWrap, approval) {
+      const typing = msgWrap.querySelector('#typing-bubble');
+      if (typing) typing.remove();
+
+      const card = document.createElement('div');
+      card.className = 'approval-card';
+      card.id = 'approval-card';
+      card.innerHTML = `
+        <h3>⚠️ Action Requires Approval</h3>
+        <p>${escHtml(approval.description)}</p>
+        <div class="approval-meta">
+          <span>tool: ${approval.tool_name}</span>
+          <span>risk: ${approval.risk_level}</span>
+          ${approval.snap_id ? `<span>snapshot: ${approval.snap_id}</span>` : ''}
+        </div>
+        <div class="approval-actions">
+          <button class="btn-approve" onclick="submitApproval(true)">Approve</button>
+          <button class="btn-deny" onclick="submitApproval(false)">Cancel</button>
+        </div>`;
+      msgWrap.insertBefore(card, msgWrap.lastChild);
+      scrollBottom();
+    }
+
+    function toggleCard(header) {
+      const body = header.nextElementSibling;
+      const tog = header.querySelector('.tool-card-toggle');
+      body.classList.toggle('collapsed');
+      tog.textContent = body.classList.contains('collapsed') ? '▼ show' : '▲ hide';
+    }
+
+    // ── Send / receive ──────────────────────────────────
+
+    function send(text) { document.getElementById('chat-input').value = text; sendMessage(); }
+
+    async function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text || isThinking || !sessionId) return;
+
+      input.value = '';
+      autoResize(input);
+      setThinking(true);
+      appendUserMsg(text);
+
+      const msgWrap = createBuddyMsg();
+      _textBubble = null;
+
+      try {
+        const res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({message: text})
+        });
+        await streamEvents(res, msgWrap);
+      } catch(e) {
+        appendText(msgWrap, 'Connection error: ' + e.message);
+      } finally {
+        setThinking(false);
+        _textBubble = null;
+      }
+    }
+
+    async function submitApproval(approved) {
+      document.getElementById('approval-card')?.remove();
+      setThinking(true);
+
+      const msgWrap = createBuddyMsg();
+      _textBubble = null;
+
+      try {
+        const res = await fetch(`/buddy/sessions/${sessionId}/approve`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({approved, reason: ''})
+        });
+        await streamEvents(res, msgWrap);
+      } catch(e) {
+        appendText(msgWrap, 'Error: ' + e.message);
+      } finally {
+        setThinking(false);
+        _textBubble = null;
+      }
+    }
+
+    async function streamEvents(response, msgWrap) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, {stream: true});
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          const raw = line.slice(5).trim();
+          if (!raw) continue;
+          let event;
+          try { event = JSON.parse(raw); } catch { continue; }
+
+          if (event.type === 'text')       appendText(msgWrap, event.content);
+          if (event.type === 'tool_call')  appendToolCard(msgWrap, event);
+          if (event.type === 'tool_result')appendToolCard(msgWrap, event);
+          if (event.type === 'approval_required') appendApprovalCard(msgWrap, event.approval);
+          if (event.type === 'error')      appendText(msgWrap, '⚠️ ' + event.content);
+          if (event.type === 'done')       break;
+        }
+      }
+      // Remove typing indicator if still there
+      msgWrap.querySelector('#typing-bubble')?.remove();
+    }
+
+    // ── Helpers ──────────────────────────────────────────
+
+    function setThinking(v) {
+      isThinking = v;
+      document.getElementById('send-btn').disabled = v;
+      document.getElementById('status-dot').className = 'status-dot' + (v ? ' thinking' : '');
+    }
+
+    function scrollBottom() {
+      const msgs = document.getElementById('messages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function nowStr() {
+      return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function onKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+  </script>
+</body>
+</html>

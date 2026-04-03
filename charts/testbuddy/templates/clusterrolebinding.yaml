@@ -1,0 +1,31 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "testbuddy.fullname" . }}-reader
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "testbuddy.fullname" . }}-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "testbuddy.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "testbuddy.fullname" . }}-writer
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "testbuddy.fullname" . }}-writer
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "testbuddy.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

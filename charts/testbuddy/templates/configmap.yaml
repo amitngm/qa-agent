@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "testbuddy.configMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+data:
+  # Non-sensitive config — safe as ConfigMap
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  MAX_PAGES_LIMIT: {{ .Values.config.maxPagesLimit | quote }}
+  BUDDY_DEFAULT_ROLE: {{ .Values.buddy.defaultRole | quote }}
+  BUDDY_AUDIT_RETENTION_DAYS: {{ .Values.buddy.auditRetentionDays | quote }}
+  BUDDY_SNAPSHOT_RETENTION_HOURS: {{ .Values.buddy.snapshotRetentionHours | quote }}
+  BUDDY_MAX_TOOL_ROUNDS: {{ .Values.buddy.maxToolRounds | quote }}
+  BUDDY_MODEL: {{ .Values.buddy.model | quote }}
+  # Paths — aligned with PVC mount
+  RUNS_STORAGE_ROOT: /data/runs
+  BUDDY_AUDIT_PATH: /data/audit/buddy_audit.jsonl
+  BUDDY_SNAPSHOT_DIR: /data/snapshots
+  # Secret file paths — app reads keys FROM FILES, not env vars
+  ANTHROPIC_API_KEY_FILE: /run/secrets/anthropic_api_key
+  GRAFANA_TOKEN_FILE: /run/secrets/grafana_token
+  GRAFANA_URL_FILE: /run/secrets/grafana_url
+  F5_PASSWORD_FILE: /run/secrets/f5_password
+  OPENSTACK_PASSWORD_FILE: /run/secrets/openstack_password

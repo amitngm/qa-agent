@@ -1,0 +1,338 @@
+flow_key: vm-flow
+flow_version: 1.0.0
+description: 'Recorded flow: vm-flow'
+recorded_at: '2026-04-01T07:28:19.593578+00:00'
+source: recorded
+browser: chromium
+headless: false
+parameters:
+- name: test_vm1
+  type: string
+  default: test-vm1
+- name: 'on'
+  type: string
+  default: 'on'
+- name: base_url
+  type: string
+  default: https://n1devcmp-user.airteldev.com
+- name: username
+  type: string
+  default: testapi
+- name: password
+  type: string
+  default: ''
+steps:
+- key: step_001
+  op: navigate
+  url: '{{base_url}}/'
+  wait_until: domcontentloaded
+  label: Navigate to /
+- key: step_002
+  op: assert_url
+  contains: /
+  label: 'Assert URL: /'
+  optional: true
+- key: step_003
+  op: navigate
+  url: https://n1devcmp-auth.airteldev.com/auth/realms/airtel/protocol/openid-connect/auth?client_id=controller&redirect_uri=https%3A%2F%2Fn1devcmp-user.airteldev.com%2F&state=bff297d3-8ceb-4d95-87f5-d0f6a7b2a2b2&response_mode=fragment&response_type=code&scope=openid&nonce=2f6c8f80-3114-45da-86a0-d41b73c99414&code_challenge=48TLuaKX9Py8WyUJ1oqcP-beJceAX-SBNQ_UKFgzU1s&code_challenge_method=S256
+  wait_until: domcontentloaded
+  label: Navigate to /auth/realms/airtel/protocol/openid-connect/auth
+- key: step_004
+  op: assert_url
+  contains: /openid-connect/auth
+  label: 'Assert URL: /openid-connect/auth'
+  optional: true
+- key: step_005
+  op: interact
+  action: fill
+  selector: '#username'
+  label: testapi
+  text: '{{username}}'
+- key: step_006
+  op: navigate
+  url: '{{base_url}}/'
+  wait_until: domcontentloaded
+  label: Navigate to /
+- key: step_007
+  op: assert_url
+  contains: /
+  label: 'Assert URL: /'
+  optional: true
+- key: step_008
+  op: navigate
+  url: '{{base_url}}/'
+  wait_until: domcontentloaded
+  label: Navigate to /
+- key: step_009
+  op: assert_url
+  contains: /
+  label: 'Assert URL: /'
+  optional: true
+- key: step_010
+  op: navigate
+  url: '{{base_url}}/select-domain'
+  wait_until: domcontentloaded
+  label: Navigate to /select-domain
+- key: step_011
+  op: assert_url
+  contains: /select-domain
+  label: 'Assert URL: /select-domain'
+  optional: true
+- key: step_012
+  op: navigate
+  url: '{{base_url}}/project/overview'
+  wait_until: domcontentloaded
+  label: Navigate to /project/overview
+- key: step_013
+  op: assert_url
+  contains: /project/overview
+  label: 'Assert URL: /project/overview'
+  optional: true
+- key: step_014
+  op: interact
+  action: click
+  selector: div.MuiPaper-root.MuiPaper-elevation > div.MuiStack-root.css-1vl8oxe >
+    div.MuiBox-root.css-9b72d6
+  label: 'RESOURCES
+
+    ADMIN'
+- key: step_015
+  op: interact
+  action: click
+  selector: div.MuiCollapse-root.MuiCollapse-vertical > div.MuiCollapse-wrapper.MuiCollapse-vertical
+    > div.MuiCollapse-wrapperInner.MuiCollapse-vertical
+  label: 'Compute
+
+    Storage
+
+    Networking
+
+    Security
+
+    Managed Database
+
+    Contain'
+- key: step_016
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines
+- key: step_017
+  op: assert_url
+  contains: /compute/virtual-machines
+  label: 'Assert URL: /compute/virtual-machines'
+  optional: true
+- key: step_018
+  op: interact
+  action: click
+  selector: '[data-testid="sidebar-"]'
+  label: Virtual Machines
+- key: step_019
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines/create'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines/create
+- key: step_020
+  op: assert_url
+  contains: /virtual-machines/create
+  label: 'Assert URL: /virtual-machines/create'
+  optional: true
+- key: step_021
+  op: interact
+  action: click
+  selector: '[data-testid="btn-create"]'
+  label: Create Virtual Machine
+- key: step_022
+  op: interact
+  action: click
+  selector: '#network-option-3'
+  label: vpc-27oct
+- key: step_023
+  op: interact
+  action: click
+  selector: '#subnet-option-13'
+  label: subnet1
+- key: step_024
+  op: interact
+  action: click
+  selector: '[data-testid="confirm"]'
+  label: Next
+- key: step_025
+  op: interact
+  action: click
+  selector: div.swiper.swiper-initialized > div.swiper-wrapper > div.swiper-slide
+  label: ubuntu
+- key: step_026
+  op: interact
+  action: fill
+  selector: '#instance_name'
+  label: test-vm1
+  text: '{{test_vm1}}'
+- key: step_027
+  op: interact
+  action: fill
+  selector: input[type="checkbox"]
+  label: 'on'
+  text: '{{on}}'
+- key: step_028
+  op: interact
+  action: click
+  selector: div.MuiStack-root.css-1cu6w1j > div.MuiStack-root.css-m8v3zu > div.MuiStack-root.css-116oixq
+  label: 'Image
+
+
+    Image refers to pre-configured snapshot or template o'
+- key: step_029
+  op: interact
+  action: click
+  selector: '[data-testid="tab-undefined"]'
+  label: Username & Password
+- key: step_030
+  op: interact
+  action: fill
+  selector: '#vm_username'
+  label: amitngm
+  text: '{{username}}'
+- key: step_031
+  op: interact
+  action: fill
+  selector: '#vm_password'
+  label: Welcome@123
+  text: '{{password}}'
+- key: step_032
+  op: interact
+  action: click
+  selector: '[data-testid="-btn-password"]'
+  label: toggle password visibility
+- key: step_033
+  op: interact
+  action: fill
+  selector: '#vm_confirm_password'
+  label: Welcome
+  text: '{{password}}'
+- key: step_034
+  op: interact
+  action: fill
+  selector: '#vm_password'
+  label: Welcome@123
+  text: '{{password}}'
+- key: step_035
+  op: interact
+  action: fill
+  selector: '#vm_confirm_password'
+  label: Welcome@123
+  text: '{{password}}'
+- key: step_036
+  op: interact
+  action: click
+  selector: '[data-testid="confirm"]'
+  label: Next
+- key: step_037
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines
+- key: step_038
+  op: assert_url
+  contains: /compute/virtual-machines
+  label: 'Assert URL: /compute/virtual-machines'
+  optional: true
+- key: step_039
+  op: interact
+  action: click
+  selector: table.MuiTable-root.MuiTable-stickyHeader > tbody.MuiTableBody-root.css-y6j1my
+    > tr.MuiTableRow-root.css-toad2n
+  label: "test-vm1\n\t\nCreating\n\t\nccd.Med\n\n1\n\nvCPU\n\n1\n\nGiB\n\nRAM\n\n\t\
+    Comput"
+- key: step_040
+  op: interact
+  action: click
+  selector: div.MuiContainer-root.MuiContainer-maxWidthLg > div.MuiStack-root.css-b87od4
+    > div.MuiStack-root.css-j7qwjs
+  label: "​\n​\nAvailability Zone\n​\nAvailability Zone\nName\n\tStatus\n\tFlav"
+- key: step_041
+  op: interact
+  action: click
+  selector: button[aria-label="Refresh"]
+  label: Refresh
+- key: step_042
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines/d2d76940-db0a-45f3-b422-b4767569f24d/overview'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines/d2d76940-db0a-45f3-b422-b4767569f24d/overview
+- key: step_043
+  op: assert_url
+  contains: /d2d76940-db0a-45f3-b422-b4767569f24d/overview
+  label: 'Assert URL: /d2d76940-db0a-45f3-b422-b4767569f24d/overview'
+  optional: true
+- key: step_044
+  op: interact
+  action: click
+  selector: table.MuiTable-root.MuiTable-stickyHeader > tbody.MuiTableBody-root.css-y6j1my
+    > tr.MuiTableRow-root.css-toad2n
+  label: "test-vm1\n\t\nActive\n\t\nccd.Med\n\n1\n\nvCPU\n\n1\n\nGiB\n\nRAM\n\n\t\
+    Compute_"
+- key: step_045
+  op: interact
+  action: click
+  selector: div.MuiBox-root.css-1vkxs73 > div.MuiStack-root.css-1eht0m0 > div.MuiStack-root.css-yd8sa2
+  label: 'Basic Details
+
+
+    Name
+
+
+    :
+
+
+    test-vm1
+
+
+    Flavor
+
+
+    :
+
+
+    ccd.Med
+
+
+    Image
+
+    '
+- key: step_046
+  op: interact
+  action: click
+  selector: '[data-testid="action-button"]'
+  label: Actions
+- key: step_047
+  op: interact
+  action: click
+  selector: '[role="menuitem"]:has-text("Delete")'
+  label: Delete
+- key: step_048
+  op: interact
+  action: click
+  selector: '[data-testid="btn-copy-clipboard"]'
+  label: Copy to clipboard
+- key: step_049
+  op: interact
+  action: fill
+  selector: '#name'
+  label: test-vm1
+  text: '{{test_vm1}}'
+- key: step_050
+  op: interact
+  action: click
+  selector: '[data-testid="btn-confirm"]'
+  label: Delete Permanently
+- key: step_051
+  op: navigate
+  url: '{{base_url}}/compute/virtual-machines'
+  wait_until: domcontentloaded
+  label: Navigate to /compute/virtual-machines
+- key: step_052
+  op: assert_url
+  contains: /compute/virtual-machines
+  label: 'Assert URL: /compute/virtual-machines'
+  optional: true

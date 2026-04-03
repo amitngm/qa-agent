@@ -1,0 +1,45 @@
+🤖 TestBuddy deployed successfully!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACCESS TestBuddy:
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  URL: https://{{ .host }}/ui/buddy
+{{- end }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  Run: kubectl get svc {{ include "testbuddy.fullname" . }} -n {{ .Release.Namespace }}
+  Then open: http://<EXTERNAL-IP>/ui/buddy
+{{- else }}
+  Port-forward:
+  kubectl port-forward svc/{{ include "testbuddy.fullname" . }} 8000:80 -n {{ .Release.Namespace }}
+  Then open: http://localhost:8000/ui/buddy
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SECURITY — Secrets are mounted as files, NOT env vars:
+  /run/secrets/anthropic_api_key   ← Claude API key
+  /run/secrets/db_conn_*           ← DB connection strings
+  /run/secrets/grafana_token       ← Grafana token (if set)
+
+  Verify: kubectl exec -n {{ .Release.Namespace }} deploy/{{ include "testbuddy.fullname" . }} \
+    -- ls -la /run/secrets/
+
+AUDIT LOG:
+  kubectl exec -n {{ .Release.Namespace }} deploy/{{ include "testbuddy.fullname" . }} \
+    -- tail -f /data/audit/buddy_audit.jsonl
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QUICK CHECKS:
+  # Health
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "testbuddy.name" . }}
+
+  # Logs
+  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "testbuddy.fullname" . }} --tail=50
+
+  # RBAC (verify cluster read access)
+  kubectl auth can-i list pods --all-namespaces \
+    --as=system:serviceaccount:{{ .Release.Namespace }}:{{ include "testbuddy.serviceAccountName" . }}

@@ -1,0 +1,238 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TestBuddy Helm values
+# Override with: helm install testbuddy ./charts/testbuddy -f my-values.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Number of replicas (2 recommended for HA)
+replicaCount: 2
+
+# ── Image ─────────────────────────────────────────────────────────────────────
+image:
+  repository: your-registry/testbuddy   # Change to your registry
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+# - name: registry-credentials
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ── Service Account ───────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: testbuddy
+  annotations: {}
+  # For AWS IRSA:
+  # eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/testbuddy
+
+# ── RBAC ──────────────────────────────────────────────────────────────────────
+rbac:
+  create: true
+  # READ ClusterRole — list/get/watch everything (all namespaces)
+  readRules:
+    - apiGroups: [""]
+      resources:
+        - pods
+        - pods/log
+        - services
+        - endpoints
+        - namespaces
+        - nodes
+        - events
+        - configmaps
+        - persistentvolumeclaims
+      verbs: [get, list, watch]
+    - apiGroups: [apps]
+      resources:
+        - deployments
+        - replicasets
+        - statefulsets
+        - daemonsets
+      verbs: [get, list, watch]
+    - apiGroups: [networking.k8s.io]
+      resources: [ingresses]
+      verbs: [get, list, watch]
+    - apiGroups: [metrics.k8s.io]
+      resources: [pods, nodes]
+      verbs: [get, list]
+
+  # WRITE ClusterRole — scoped mutations (used only after user approval)
+  writeRules:
+    - apiGroups: [""]
+      resources: [pods]
+      verbs: [delete]                  # pod restart
+    - apiGroups: [""]
+      resources: [pods/exec]
+      verbs: [create]                  # exec into pod
+    - apiGroups: [apps]
+      resources: [deployments/scale, deployments]
+      verbs: [patch, update]           # scale deployment
+
+# ── Service ───────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+# ── Ingress ───────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # Uncomment for TLS with cert-manager:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: testbuddy.example.com     # Change to your domain
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: testbuddy-tls
+  #   hosts:
+  #     - testbuddy.example.com
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# IMPORTANT: In production use External Secrets Operator or Sealed Secrets
+# instead of putting values here directly.
+secrets:
+  # Required: Anthropic API key for Claude
+  anthropicApiKey: ""                  # Set via: --set secrets.anthropicApiKey=sk-ant-...
+
+  # Database connections (name: dsn)
+  # Each entry creates a DB_CONN_<name>=<dsn> environment variable
+  dbConnections: {}
+  # Examples:
+  # main: "postgresql://user:pass@postgres.airtel.svc:5432/airteldb"
+  # metrics: "postgresql://user:pass@metrics-db.monitoring.svc:5432/metricsdb"
+
+  # Grafana (Phase 2)
+  grafanaUrl: ""
+  grafanaToken: ""
+
+  # OpenStack (Phase 2)
+  openstackAuthUrl: ""
+  openstackUsername: ""
+  openstackPassword: ""
+  openstackProjectId: ""
+
+  # F5 BIG-IP (Phase 2)
+  f5Host: ""
+  f5Username: ""
+  f5Password: ""
+
+  # External secret reference (use instead of inline values)
+  # externalSecret:
+  #   enabled: true
+  #   secretStoreName: vault-backend
+  #   remoteRef:
+  #     key: testbuddy/secrets
+
+# ── Application Config ────────────────────────────────────────────────────────
+config:
+  environment: production
+  logLevel: INFO
+  maxPagesLimit: 99999
+  # Passed as QA_AGENT_CONFIG_PATH content overrides
+  agentConfigOverrides: {}
+
+# ── Buddy-specific settings ───────────────────────────────────────────────────
+buddy:
+  defaultRole: tester               # Default role for new sessions
+  auditRetentionDays: 90
+  snapshotRetentionHours: 24
+  maxToolRounds: 10                 # Max Claude tool-use rounds per message
+  model: claude-opus-4-6            # Claude model to use
+
+# ── Persistent Storage ────────────────────────────────────────────────────────
+persistence:
+  enabled: true
+  storageClass: ""                  # "" = cluster default
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  # Mount paths inside container
+  mountPath: /data
+  # Sub-paths for different data types
+  subPaths:
+    runs: runs
+    audit: audit
+    snapshots: snapshots
+    evidence: evidence
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+# ── Autoscaling ───────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ── Probes ────────────────────────────────────────────────────────────────────
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 40
+    periodSeconds: 15
+    failureThreshold: 3
+    timeoutSeconds: 5
+  readiness:
+    path: /health
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+
+# ── Security Context ──────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false     # Playwright needs write access for browser cache
+  capabilities:
+    drop: [ALL]
+
+# ── Pod settings ─────────────────────────────────────────────────────────────
+podAnnotations: {}
+podLabels: {}
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [testbuddy]
+          topologyKey: kubernetes.io/hostname
+
+# ── Extra environment variables ───────────────────────────────────────────────
+extraEnv: []
+# - name: MY_CUSTOM_VAR
+#   value: "my-value"
+
+extraEnvFrom: []
+# - secretRef:
+#     name: my-existing-secret
+
+# ── Extra volumes ─────────────────────────────────────────────────────────────
+extraVolumes: []
+extraVolumeMounts: []

@@ -1,0 +1,21 @@
+{{- if .Values.persistence.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "testbuddy.pvcName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+  annotations:
+    # Keep PVC when helm release is deleted (protect data)
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

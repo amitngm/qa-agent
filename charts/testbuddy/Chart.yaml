@@ -1,0 +1,18 @@
+apiVersion: v2
+name: testbuddy
+description: >
+  TestBuddy — AI-powered platform QA agent. Deploys into a dedicated
+  namespace with ClusterRole read access across all namespaces, and
+  controlled write/destructive access gated by the permission engine.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - qa
+  - testing
+  - ai
+  - kubernetes
+  - platform-engineering
+home: https://github.com/your-org/testbuddy
+maintainers:
+  - name: platform-team

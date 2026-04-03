@@ -577,3 +577,8 @@ def ui_history(
     )
 
 
+@router.get("/buddy")
+def ui_buddy(request: Request) -> Any:
+    return templates.TemplateResponse("buddy.html", {"request": request})
+
+

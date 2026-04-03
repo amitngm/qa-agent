@@ -1,0 +1,23 @@
+{{- if .Values.rbac.create -}}
+# ── READ ClusterRole ──────────────────────────────────────────────────────────
+# Full read access across ALL namespaces (needed for platform observability)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "testbuddy.fullname" . }}-reader
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.rbac.readRules | nindent 2 }}
+---
+# ── WRITE ClusterRole ─────────────────────────────────────────────────────────
+# Scoped write operations — only used after user approval in permission engine
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "testbuddy.fullname" . }}-writer
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.rbac.writeRules | nindent 2 }}
+{{- end }}

@@ -1,0 +1,15 @@
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.git
+.gitignore
+*.md
+runs/
+buddy_audit.jsonl
+buddy_snapshots/
+.DS_Store
+Dockerfile
+charts/

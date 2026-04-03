@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "testbuddy.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "testbuddy.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "testbuddy.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0          # zero-downtime rollout
+  template:
+    metadata:
+      labels:
+        {{- include "testbuddy.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        # Force pod restart when configmap or secret changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "testbuddy.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      # ── Init container: wait for secrets to be ready ────────────────────────
+      initContainers:
+        - name: check-secrets
+          image: busybox:1.36
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Checking required secret files..."
+              for f in /run/secrets/anthropic_api_key; do
+                if [ ! -s "$f" ]; then
+                  echo "ERROR: $f is missing or empty"
+                  exit 1
+                fi
+              done
+              echo "All secrets present."
+          volumeMounts:
+            - name: secrets-vol
+              mountPath: /run/secrets
+              readOnly: true
+
+      containers:
+        - name: testbuddy
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # ── Environment: NON-SENSITIVE only ──────────────────────────────────
+          # Sensitive values (API keys, passwords) come from secret FILES below
+          # NOT from env vars — env vars are visible in kubectl describe / proc
+          envFrom:
+            - configMapRef:
+                name: {{ include "testbuddy.configMapName" . }}
+            {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          # ── Volume mounts ────────────────────────────────────────────────────
+          volumeMounts:
+            # Secrets mounted as files — NOT env vars
+            # Files at /run/secrets/<key> are readable only by this process
+            - name: secrets-vol
+              mountPath: /run/secrets
+              readOnly: true
+
+            # Persistent data (audit log, snapshots, runs, evidence)
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+
+            # Tmp for playwright browser cache
+            - name: tmp
+              mountPath: /tmp
+
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          # ── Probes ─────────────────────────────────────────────────────────
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes:
+        # ── Secret volume: files only, not env vars ───────────────────────────
+        {{- if .Values.secrets.anthropicApiKey }}
+        - name: secrets-vol
+          secret:
+            secretName: {{ include "testbuddy.secretName" . }}
+            # defaultMode 0400 = owner read-only (most restrictive)
+            defaultMode: 0400
+        {{- else }}
+        # No secrets configured — mount empty dir (app will fail gracefully)
+        - name: secrets-vol
+          emptyDir: {}
+        {{- end }}
+
+        # ── Persistent data volume ────────────────────────────────────────────
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "testbuddy.pvcName" . }}
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+
+        # ── Tmp volume for playwright ─────────────────────────────────────────
+        - name: tmp
+          emptyDir: {}
+
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
