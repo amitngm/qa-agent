@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Generic, config-driven QA agent orchestration framework"
 requires-python = ">=3.9"
 dependencies = [
-    "fastapi>=0.109",
+    "fastapi>=0.109,<0.115",
+    "starlette>=0.35,<0.46",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.27",
