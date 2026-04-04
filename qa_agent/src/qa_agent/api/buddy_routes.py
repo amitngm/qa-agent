@@ -14,6 +14,7 @@ from qa_agent.buddy.audit import AuditLog
 from qa_agent.buddy.brain import Brain
 from qa_agent.buddy.default_registry import build_default_registry
 from qa_agent.buddy.permission import PermissionEngine
+from qa_agent.buddy.providers.factory import build_provider
 from qa_agent.buddy.recovery import RecoveryEngine
 from qa_agent.buddy.session import SessionStore
 
@@ -27,7 +28,14 @@ _permission = PermissionEngine()
 _recovery = RecoveryEngine()
 _audit = AuditLog()
 _sessions = SessionStore()
-_brain = Brain(registry=_registry, permission=_permission, recovery=_recovery, audit=_audit)
+_provider = build_provider()  # reads BUDDY_PROVIDER / BUDDY_MODEL from env
+_brain = Brain(
+    registry=_registry,
+    permission=_permission,
+    recovery=_recovery,
+    audit=_audit,
+    provider=_provider,
+)
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────

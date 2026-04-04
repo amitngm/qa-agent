@@ -46,13 +46,20 @@ spec:
           args:
             - |
               echo "Checking required secret files..."
-              for f in /app/secrets/anthropic_api_key; do
-                if [ ! -s "$f" ]; then
-                  echo "ERROR: $f is missing or empty"
-                  exit 1
-                fi
-              done
-              echo "All secrets present."
+              PROVIDER="{{ .Values.buddy.provider }}"
+              case "$PROVIDER" in
+                anthropic) KEY_FILE=/app/secrets/anthropic_api_key ;;
+                groq)      KEY_FILE=/app/secrets/groq_api_key ;;
+                openai)    KEY_FILE=/app/secrets/openai_api_key ;;
+                gemini)    KEY_FILE=/app/secrets/gemini_api_key ;;
+                ollama)    echo "Ollama needs no API key."; exit 0 ;;
+                *)         echo "Unknown provider: $PROVIDER"; exit 1 ;;
+              esac
+              if [ ! -s "$KEY_FILE" ]; then
+                echo "ERROR: $KEY_FILE is missing or empty for provider $PROVIDER"
+                exit 1
+              fi
+              echo "Secret check passed for provider: $PROVIDER"
           volumeMounts:
             - name: secrets-vol
               mountPath: /app/secrets
