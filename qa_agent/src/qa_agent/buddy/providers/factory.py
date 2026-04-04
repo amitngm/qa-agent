@@ -13,7 +13,7 @@ log = logging.getLogger("qa_agent.buddy.providers.factory")
 # Default models per provider (free-tier where available)
 DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-opus-4-6",
-    "groq":      "llama-3.3-70b-versatile",
+    "groq":      "llama3-groq-70b-8192-tool-use-preview",
     "ollama":    "llama3.2",
     "openai":    "gpt-4o-mini",
     "gemini":    "gemini-2.0-flash",
