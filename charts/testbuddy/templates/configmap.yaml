@@ -14,6 +14,7 @@ data:
   BUDDY_AUDIT_RETENTION_DAYS: {{ .Values.buddy.auditRetentionDays | quote }}
   BUDDY_SNAPSHOT_RETENTION_HOURS: {{ .Values.buddy.snapshotRetentionHours | quote }}
   BUDDY_MAX_TOOL_ROUNDS: {{ .Values.buddy.maxToolRounds | quote }}
+  BUDDY_LLM_RESULT_MAX_CHARS: {{ .Values.buddy.llmResultMaxChars | quote }}
   BUDDY_MODEL: {{ .Values.buddy.model | quote }}
   BUDDY_PROVIDER: {{ .Values.buddy.provider | quote }}
   {{- if .Values.buddy.baseUrl }}

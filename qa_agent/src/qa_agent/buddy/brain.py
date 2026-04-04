@@ -213,14 +213,17 @@ class Brain:
                     result = _safe_execute(tool, params)
                     self._audit.record(session.session_id, session.user, block.tool_name or "", params, result)
 
+                    raw_content = result.to_content()
+                    llm_content = _sanitize_for_llm(raw_content)
+
                     yield {
                         "type": "tool_result",
                         "name": block.tool_name,
                         "ok": result.ok,
-                        "data": result.to_content()[:2000],
+                        "data": raw_content[:2000],  # full data shown in UI only
                     }
                     tool_results.append(
-                        self._mk_tool_result(block.tool_use_id or "", result.to_content())
+                        self._mk_tool_result(block.tool_use_id or "", llm_content)
                     )
 
                 # Feed tool results back into session
@@ -274,7 +277,7 @@ class Brain:
         }
 
         session.messages.append(
-            self._mk_tool_result(approval.tool_use_id, result.to_content())
+            self._mk_tool_result(approval.tool_use_id, _sanitize_for_llm(result.to_content()))
         )
 
         yield from self.chat(session, "")
@@ -298,6 +301,30 @@ def _safe_execute(tool: Any, params: dict) -> ToolResult:
     except Exception as exc:
         log.exception("tool %s raised", tool.name)
         return ToolResult(ok=False, error=str(exc))
+
+
+import re as _re
+import os as _os
+
+# Max chars of tool result sent to the LLM (cloud providers).
+# Full result is still stored in audit log and shown in UI.
+_LLM_RESULT_MAX_CHARS = int(_os.environ.get("BUDDY_LLM_RESULT_MAX_CHARS", "3000"))
+
+# Patterns that look like secrets / internal addresses — replaced before sending to cloud LLM
+_REDACT_PATTERNS = [
+    (_re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'), "<ip>"),          # IPv4
+    (_re.compile(r'(?i)(password|secret|token|key)\s*[=:]\s*\S+'), r'\1=<redacted>'),  # creds
+    (_re.compile(r'-----BEGIN [A-Z ]+-----[\s\S]+?-----END [A-Z ]+-----'), '<cert>'),  # certs
+]
+
+
+def _sanitize_for_llm(content: str) -> str:
+    """Redact IPs/credentials and truncate before sending to a cloud LLM."""
+    for pattern, replacement in _REDACT_PATTERNS:
+        content = pattern.sub(replacement, content)
+    if len(content) > _LLM_RESULT_MAX_CHARS:
+        content = content[:_LLM_RESULT_MAX_CHARS] + f"\n... [truncated, {len(content)} chars total]"
+    return content
 
 
 def _describe_action(tool_name: str, params: dict) -> str:
