@@ -101,6 +101,10 @@ spec:
             - name: tmp
               mountPath: /tmp
 
+            # Writable /run so K8s can mount serviceaccount token
+            - name: run
+              mountPath: /run
+
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -152,6 +156,10 @@ spec:
 
         # ── Tmp volume for playwright ─────────────────────────────────────────
         - name: tmp
+          emptyDir: {}
+
+        # ── Writable /run for K8s serviceaccount token mount ─────────────────
+        - name: run
           emptyDir: {}
 
         {{- with .Values.extraVolumes }}
