@@ -71,9 +71,10 @@ rbac:
 
 # ── Service ───────────────────────────────────────────────────────────────────
 service:
-  type: ClusterIP
+  type: NodePort
   port: 80
   targetPort: 8000
+  nodePort: 30080        # Fixed NodePort (30000-32767), leave empty for random
   annotations: {}
 
 # ── Ingress ───────────────────────────────────────────────────────────────────
