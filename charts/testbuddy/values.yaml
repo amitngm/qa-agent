@@ -8,7 +8,7 @@ replicaCount: 2
 
 # ── Image ─────────────────────────────────────────────────────────────────────
 image:
-  repository: your-registry/testbuddy   # Change to your registry
+  repository: aibuddy/testbuddy
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 
