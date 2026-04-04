@@ -93,6 +93,11 @@ class OpenAICompatProvider(BaseProvider):
                     for tb in text_blocks:
                         oai_messages.append({"role": "user", "content": tb.get("text", "")})
 
+            elif role == "tool":
+                # Tool result messages stored by format_tool_result — pass through as-is
+                oai_messages.append(msg)
+                continue
+
             elif role == "assistant":
                 if isinstance(content, str):
                     oai_messages.append({"role": "assistant", "content": content})
@@ -131,8 +136,11 @@ class OpenAICompatProvider(BaseProvider):
                         assistant_msg["tool_calls"] = tool_calls
                     oai_messages.append(assistant_msg)
 
-        # Remove empty messages
-        oai_messages = [m for m in oai_messages if m.get("content") or m.get("tool_calls")]
+        # Remove empty messages (keep tool messages and assistant messages with tool_calls)
+        oai_messages = [
+            m for m in oai_messages
+            if m.get("content") or m.get("tool_calls") or m.get("role") == "tool"
+        ]
 
         oai_tools = self.format_tool_definitions(tools) if tools else []
 
