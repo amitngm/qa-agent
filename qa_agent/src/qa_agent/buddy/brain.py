@@ -22,7 +22,7 @@ log = logging.getLogger("qa_agent.buddy.brain")
 # NEVER log or expose the key value itself.
 
 _SECRET_FILE_ENV = "ANTHROPIC_API_KEY_FILE"          # points to file path
-_SECRET_FILE_DEFAULT = "/run/secrets/anthropic_api_key"
+_SECRET_FILE_DEFAULT = "/app/secrets/anthropic_api_key"
 _SECRET_ENV_FALLBACK = "ANTHROPIC_API_KEY"           # local dev only
 
 

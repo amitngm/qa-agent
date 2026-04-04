@@ -21,7 +21,7 @@ from qa_agent.buddy.tools.log_analysis import all_log_analysis_tools
 
 log = logging.getLogger("qa_agent.buddy.default_registry")
 
-_SECRET_DIR = Path(os.environ.get("SECRETS_DIR", "/run/secrets"))
+_SECRET_DIR = Path(os.environ.get("SECRETS_DIR", "/app/secrets"))
 _ENV_PREFIX = "DB_CONN_"
 
 

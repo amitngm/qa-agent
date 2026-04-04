@@ -46,7 +46,7 @@ spec:
           args:
             - |
               echo "Checking required secret files..."
-              for f in /run/secrets/anthropic_api_key; do
+              for f in /app/secrets/anthropic_api_key; do
                 if [ ! -s "$f" ]; then
                   echo "ERROR: $f is missing or empty"
                   exit 1
@@ -55,7 +55,7 @@ spec:
               echo "All secrets present."
           volumeMounts:
             - name: secrets-vol
-              mountPath: /run/secrets
+              mountPath: /app/secrets
               readOnly: true
 
       containers:
@@ -86,9 +86,9 @@ spec:
           # ── Volume mounts ────────────────────────────────────────────────────
           volumeMounts:
             # Secrets mounted as files — NOT env vars
-            # Files at /run/secrets/<key> are readable only by this process
+            # Files at /app/secrets/<key> are readable only by this process
             - name: secrets-vol
-              mountPath: /run/secrets
+              mountPath: /app/secrets
               readOnly: true
 
             # Persistent data (audit log, snapshots, runs, evidence)
@@ -101,9 +101,6 @@ spec:
             - name: tmp
               mountPath: /tmp
 
-            # Writable /run so K8s can mount serviceaccount token
-            - name: run
-              mountPath: /run
 
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -158,9 +155,6 @@ spec:
         - name: tmp
           emptyDir: {}
 
-        # ── Writable /run for K8s serviceaccount token mount ─────────────────
-        - name: run
-          emptyDir: {}
 
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

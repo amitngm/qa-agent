@@ -20,8 +20,8 @@ data:
   BUDDY_AUDIT_PATH: /data/audit/buddy_audit.jsonl
   BUDDY_SNAPSHOT_DIR: /data/snapshots
   # Secret file paths — app reads keys FROM FILES, not env vars
-  ANTHROPIC_API_KEY_FILE: /run/secrets/anthropic_api_key
-  GRAFANA_TOKEN_FILE: /run/secrets/grafana_token
-  GRAFANA_URL_FILE: /run/secrets/grafana_url
-  F5_PASSWORD_FILE: /run/secrets/f5_password
-  OPENSTACK_PASSWORD_FILE: /run/secrets/openstack_password
+  ANTHROPIC_API_KEY_FILE: /app/secrets/anthropic_api_key
+  GRAFANA_TOKEN_FILE: /app/secrets/grafana_token
+  GRAFANA_URL_FILE: /app/secrets/grafana_url
+  F5_PASSWORD_FILE: /app/secrets/f5_password
+  OPENSTACK_PASSWORD_FILE: /app/secrets/openstack_password
