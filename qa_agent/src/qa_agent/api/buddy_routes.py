@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
@@ -129,12 +131,32 @@ def chat(session_id: str, req: ChatRequest):
         )
 
     def event_stream():
-        try:
-            for event in _brain.chat(session, req.message):
-                yield f"data: {json.dumps(event)}\n\n"
-        except Exception as exc:
-            log.exception("chat stream error")
-            yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n"
+        import queue as _queue
+        q: _queue.Queue = _queue.Queue()
+
+        def _run():
+            try:
+                for event in _brain.chat(session, req.message):
+                    q.put(f"data: {json.dumps(event)}\n\n")
+            except Exception as exc:
+                log.exception("chat stream error")
+                q.put(f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n")
+            finally:
+                q.put(None)  # sentinel
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+
+        while True:
+            try:
+                chunk = q.get(timeout=15)
+            except _queue.Empty:
+                # Send SSE comment to keep connection alive during slow inference
+                yield ": keepalive\n\n"
+                continue
+            if chunk is None:
+                break
+            yield chunk
         yield "data: {\"type\": \"done\"}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -152,15 +174,33 @@ def approve_action(session_id: str, req: ApprovalRequest):
         raise HTTPException(status_code=409, detail="No pending approval")
 
     def event_stream():
-        try:
-            for event in _brain.resume_after_approval(session, req.approved):
-                # Skip empty messages from resume
-                if event.get("type") == "text" and not event.get("content"):
-                    continue
-                yield f"data: {json.dumps(event)}\n\n"
-        except Exception as exc:
-            log.exception("approval resume error")
-            yield f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n"
+        import queue as _queue
+        q: _queue.Queue = _queue.Queue()
+
+        def _run():
+            try:
+                for event in _brain.resume_after_approval(session, req.approved):
+                    if event.get("type") == "text" and not event.get("content"):
+                        continue
+                    q.put(f"data: {json.dumps(event)}\n\n")
+            except Exception as exc:
+                log.exception("approval resume error")
+                q.put(f"data: {json.dumps({'type': 'error', 'content': str(exc)})}\n\n")
+            finally:
+                q.put(None)
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+
+        while True:
+            try:
+                chunk = q.get(timeout=15)
+            except _queue.Empty:
+                yield ": keepalive\n\n"
+                continue
+            if chunk is None:
+                break
+            yield chunk
         yield "data: {\"type\": \"done\"}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

@@ -151,6 +151,7 @@ class OpenAICompatProvider(BaseProvider):
         }
         if oai_tools:
             kwargs["tools"] = oai_tools
+            kwargs["tool_choice"] = "auto"
 
         response = client.chat.completions.create(**kwargs)
         choice = response.choices[0]
