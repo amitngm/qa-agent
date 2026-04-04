@@ -9,7 +9,7 @@ replicaCount: 1
 # ── Image ─────────────────────────────────────────────────────────────────────
 image:
   repository: aibuddy/testbuddy
-  tag: "0.1.0"
+  tag: "0.1.4"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
