@@ -189,6 +189,11 @@
       transition: all .15s;
     }
     .suggestion:hover { border-color: #6c5ce7; color: #6c5ce7; background: #f5f3ff; }
+    .suggestion-primary {
+      background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+      border-color: #c4b5fd; color: #5b21b6; font-weight: 600;
+    }
+    .suggestion-primary:hover { background: linear-gradient(135deg, #ede9fe, #ddd6fe); border-color: #6c5ce7; color: #4c1d95; }
 
     /* Input bar */
     .input-bar {
@@ -276,10 +281,12 @@
           <p>Your AI platform testing assistant. Ask me to investigate issues,
              check services, query databases, inspect pods, or run health checks.</p>
           <div class="suggestion-grid">
+            <span class="suggestion suggestion-primary" onclick="send('Scan all pods in the default namespace for issues and give me a full issue report')">🔍 Scan all pods for issues</span>
+            <span class="suggestion suggestion-primary" onclick="send('Analyze logs for issues and suggest fixes — which pod should I check?')">📋 Analyze pod logs for errors</span>
             <span class="suggestion" onclick="send('Why is my service unhealthy? Check all pods in default namespace')">Why is my service unhealthy?</span>
-            <span class="suggestion" onclick="send('List all namespaces in the cluster')">List all namespaces</span>
-            <span class="suggestion" onclick="send('Check health of http://localhost:8080')">Check service health</span>
             <span class="suggestion" onclick="send('Show me recent warning events in default namespace')">Recent K8s warnings</span>
+            <span class="suggestion" onclick="send('Check health of http://localhost:8080')">Check service health</span>
+            <span class="suggestion" onclick="send('List all namespaces in the cluster')">List all namespaces</span>
             <span class="suggestion" onclick="send('List all database connections configured')">What DBs are connected?</span>
             <span class="suggestion" onclick="send('Show available tools')">What can you do?</span>
           </div>

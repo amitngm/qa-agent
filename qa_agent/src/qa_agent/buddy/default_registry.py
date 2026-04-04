@@ -17,6 +17,7 @@ from qa_agent.buddy.registry import ToolRegistry
 from qa_agent.buddy.tools.database import all_db_tools, register_connection
 from qa_agent.buddy.tools.http_tools import all_http_tools
 from qa_agent.buddy.tools.k8s import all_k8s_tools
+from qa_agent.buddy.tools.log_analysis import all_log_analysis_tools
 
 log = logging.getLogger("qa_agent.buddy.default_registry")
 
@@ -62,5 +63,6 @@ def build_default_registry() -> ToolRegistry:
     registry.register_many(all_k8s_tools())
     registry.register_many(all_db_tools())
     registry.register_many(all_http_tools())
+    registry.register_many(all_log_analysis_tools())
     log.info("buddy registry: %d tools loaded", len(registry.all_tools()))
     return registry
