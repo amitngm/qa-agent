@@ -478,7 +478,11 @@
     async function sendMessage() {
       const input = document.getElementById('chat-input');
       const text = input.value.trim();
-      if (!text || isThinking || !sessionId) return;
+      if (!text || isThinking) return;
+      if (!sessionId) {
+        await newSession();
+        if (!sessionId) { alert('Could not create session. Try refreshing.'); return; }
+      }
 
       input.value = '';
       autoResize(input);
