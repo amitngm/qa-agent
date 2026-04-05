@@ -167,7 +167,12 @@ class Brain:
     # Public: stream chat response
     # ------------------------------------------------------------------
 
-    def chat(self, session: Session, user_message: str) -> Generator[dict, None, None]:
+    def chat(
+        self,
+        session: Session,
+        user_message: str,
+        system_prompt_override: str = "",
+    ) -> Generator[dict, None, None]:
         """
         Process a user message.  Yields event dicts:
           {"type": "text",     "content": str}
@@ -182,11 +187,12 @@ class Brain:
         tools = self._registry.to_claude_tools()
 
         for _round in range(self._max_rounds):
+            active_system_prompt = system_prompt_override if system_prompt_override else SYSTEM_PROMPT
             try:
                 response = self._provider.chat(
                     messages=session.messages,
                     tools=tools,
-                    system_prompt=SYSTEM_PROMPT,
+                    system_prompt=active_system_prompt,
                 )
             except Exception as exc:
                 yield {"type": "error", "content": str(exc)}

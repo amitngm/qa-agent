@@ -15,8 +15,11 @@ from pydantic import BaseModel
 from qa_agent.buddy.audit import AuditLog
 from qa_agent.buddy.brain import Brain
 from qa_agent.buddy.default_registry import build_default_registry
+from qa_agent.buddy.domain.platform import PlatformDomain
+from qa_agent.buddy.intent.router import IntentRouter
 from qa_agent.buddy.permission import PermissionEngine
 from qa_agent.buddy.providers.factory import build_provider
+from qa_agent.buddy.reasoning.prompts import PromptLibrary
 from qa_agent.buddy.recovery import RecoveryEngine
 from qa_agent.buddy.session import SessionStore
 
@@ -38,6 +41,8 @@ _brain = Brain(
     audit=_audit,
     provider=_provider,
 )
+# Intent router — LLM fallback enabled (uses same provider)
+_intent_router = IntentRouter(provider=_provider)
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
@@ -130,13 +135,39 @@ def chat(session_id: str, req: ChatRequest):
             detail="Action pending approval. Use POST /approve or /deny first.",
         )
 
+    # ── Intent classification + prompt selection ──────────────────────────────
+    intent_result = _intent_router.classify(req.message)
+    session.intent = intent_result.intent
+    session.intent_confidence = intent_result.confidence
+
+    # Enrich prompt with domain knowledge for the detected feature
+    domain_ctx = ""
+    if intent_result.primary_feature != "unknown":
+        domain_ctx = PlatformDomain.domain_context(intent_result.primary_feature)
+
+    system_prompt = PromptLibrary.build(
+        intent=intent_result.intent,
+        **intent_result.to_prompt_vars(),
+        rag_context=domain_ctx,   # domain knowledge acts as RAG until full RAG is wired
+    )
+
+    log.info(
+        "intent=%s confidence=%s features=%s urgency=%s",
+        intent_result.intent,
+        intent_result.confidence,
+        intent_result.features,
+        intent_result.urgency,
+    )
+
     def event_stream():
         import queue as _queue
         q: _queue.Queue = _queue.Queue()
 
         def _run():
             try:
-                for event in _brain.chat(session, req.message):
+                # Emit intent event so UI can show what mode buddy is in
+                q.put(f"data: {json.dumps({'type': 'intent', 'intent': intent_result.intent, 'confidence': intent_result.confidence, 'features': intent_result.features})}\n\n")
+                for event in _brain.chat(session, req.message, system_prompt_override=system_prompt):
                     q.put(f"data: {json.dumps(event)}\n\n")
             except Exception as exc:
                 log.exception("chat stream error")

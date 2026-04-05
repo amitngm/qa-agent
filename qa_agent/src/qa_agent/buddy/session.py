@@ -27,6 +27,11 @@ class Session:
     pending_approval: PendingApproval | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # Intent + RAG metadata (populated per-message by IntentRouter + RAGEngine)
+    intent: str = ""                             # last classified intent
+    intent_confidence: str = ""                  # HIGH | MEDIUM | LOW
+    rag_sources: list[str] = field(default_factory=list)  # knowledge sources used
+    rag_confidence: float = 0.0                  # 0.0–1.0 retrieval quality score
 
     def touch(self) -> None:
         self.updated_at = datetime.now(timezone.utc)
