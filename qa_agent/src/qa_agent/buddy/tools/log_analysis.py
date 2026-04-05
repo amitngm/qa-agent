@@ -25,10 +25,34 @@ _PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r'(403 Forbidden|401 Unauthorized|permission denied|Access Denied|not authorized)', re.I), "auth", "medium"),
     (re.compile(r'(404 Not Found|no such file|file not found|resource not found|NoSuchKey)', re.I), "not_found", "medium"),
     (re.compile(r'(no space left|disk full|Disk quota|ENOSPC|storage.*full)', re.I), "storage", "high"),
+    # Config-specific patterns
+    (re.compile(r'(env.*not.*set|environment variable.*missing|required.*env|missing.*config|config.*not found|property.*not found|undefined.*variable|KeyError|no value for)', re.I), "config_missing", "high"),
+    (re.compile(r'(invalid.*config|bad.*config|config.*invalid|malformed.*config|parse.*error.*config|wrong.*value|unexpected.*value)', re.I), "config_invalid", "high"),
+    (re.compile(r'(certificate.*expired|cert.*invalid|TLS.*failed|SSL.*error|x509)', re.I), "cert_tls", "high"),
+    (re.compile(r'(DNS.*resolution|NXDOMAIN|name.*not.*resolv|unknown host|host.*not.*found)', re.I), "dns", "high"),
     (re.compile(r'\bWARN(ING)?\b', re.I), "warning", "low"),
 ]
 
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+# Root cause type classification per category
+_ROOT_CAUSE_TYPE: dict[str, str] = {
+    "oom": "INFRA",
+    "crash_loop": "INFRA",
+    "exception": "CODE",
+    "fatal": "CODE",
+    "error": "CODE",
+    "connectivity": "NETWORK",
+    "timeout": "NETWORK",
+    "auth": "CONFIG",
+    "not_found": "CODE",
+    "storage": "INFRA",
+    "config_missing": "CONFIG",
+    "config_invalid": "CONFIG",
+    "cert_tls": "CONFIG",
+    "dns": "NETWORK",
+    "warning": "CODE",
+}
 
 _FIX_HINTS: dict[str, str] = {
     "oom": (
@@ -85,6 +109,27 @@ _FIX_HINTS: dict[str, str] = {
         "Warnings often precede errors — monitor for escalation. "
         "Review warning context to determine if action is needed now."
     ),
+    "config_missing": (
+        "Check environment variables and ConfigMap keys in the pod spec. "
+        "Use k8s_get_env_vars and k8s_get_configmap to audit what is actually mounted. "
+        "Ensure required keys are present and not optional when they should be mandatory."
+    ),
+    "config_invalid": (
+        "A config value exists but has the wrong format, type, or range. "
+        "Use k8s_get_configmap to inspect current values. "
+        "Compare against expected schema — common issues: wrong port, malformed URL, bad JSON."
+    ),
+    "cert_tls": (
+        "Check certificate expiry dates with: openssl s_client -connect <host>:<port>. "
+        "Inspect TLS secrets with k8s_list_secrets to verify cert is mounted. "
+        "Rotate expired certs immediately. Check if cert-manager is auto-renewing."
+    ),
+    "dns": (
+        "DNS resolution failing inside pod. "
+        "Check CoreDNS is running in kube-system (k8s_list_pods). "
+        "Verify service name and namespace — use <svc>.<namespace>.svc.cluster.local format. "
+        "Run nslookup inside pod with k8s_exec to confirm DNS resolution."
+    ),
 }
 
 
@@ -112,6 +157,7 @@ def _analyze_lines(lines: list[str]) -> list[dict]:
             issues.append({
                 "severity": severity,
                 "category": category,
+                "root_cause_type": _ROOT_CAUSE_TYPE.get(category, "UNKNOWN"),
                 "line_number": i + 1,
                 "message": line.strip(),
                 "context": _get_context(lines, i),
