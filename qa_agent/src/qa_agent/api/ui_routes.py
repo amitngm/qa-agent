@@ -187,8 +187,7 @@ def _resolve_run(
 
 @router.get("/")
 def ui_home() -> RedirectResponse:
-    """Landing: send users to the run form."""
-    return RedirectResponse(url="/ui/run", status_code=302)
+    return RedirectResponse(url="/ui/buddy", status_code=302)
 
 
 def _all_flow_keys() -> list[str]:
@@ -202,19 +201,8 @@ def _all_flow_keys() -> list[str]:
 
 
 @router.get("/run")
-def ui_run_form(request: Request, agent_config: AgentConfig = Depends(get_agent_config)) -> Any:
-    return templates.TemplateResponse(
-        "run_form.html",
-        {
-            "request": request,
-            "title": "Run QA",
-            "default_environment": agent_config.environment,
-            "suite_flow_keys": list(agent_config.suite.flow_keys),
-            "all_flow_keys": _all_flow_keys(),
-            "form_error": None,
-            "form_values": None,
-        },
-    )
+def ui_run_form(request: Request) -> Any:
+    return RedirectResponse(url="/ui/buddy", status_code=302)
 
 
 def _form_bool(value: str) -> bool:
@@ -549,32 +537,8 @@ def ui_run_report(
 
 
 @router.get("/history")
-def ui_history(
-    request: Request,
-    agent_config: AgentConfig = Depends(get_agent_config),
-) -> Any:
-    root = _runs_root(agent_config)
-    rows: list[dict[str, Any]] = []
-    empty_reason: Optional[str] = None
-    if root is None:
-        empty_reason = "Set runs_storage_root in configuration to list runs from the file store."
-    elif not root.is_dir():
-        empty_reason = f"Configured storage path is not a directory: {root}"
-    else:
-        rows = list_disk_run_rows(root, limit=50)
-        if not rows:
-            empty_reason = "No runs yet. Start a run while persistence is enabled to see history here."
-
-    return templates.TemplateResponse(
-        "history.html",
-        {
-            "request": request,
-            "title": "Run history",
-            "rows": rows,
-            "empty_reason": empty_reason,
-            "has_disk": root is not None,
-        },
-    )
+def ui_history(request: Request) -> Any:
+    return RedirectResponse(url="/ui/buddy", status_code=302)
 
 
 @router.get("/buddy")

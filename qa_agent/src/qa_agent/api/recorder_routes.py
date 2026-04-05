@@ -26,11 +26,8 @@ _sessions: dict[str, RecordingSession] = {}
 
 @router.get("", response_class=HTMLResponse)
 def recorder_home(request: Request) -> Any:
-    return templates.TemplateResponse("recorder.html", {
-        "request": request,
-        "title": "Flow Recorder",
-        "session": None,
-    })
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/buddy", status_code=302)
 
 
 # ── Session lifecycle ─────────────────────────────────────────────────────────
