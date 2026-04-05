@@ -146,7 +146,6 @@ def chat(session_id: str, req: ChatRequest):
         domain_ctx = PlatformDomain.domain_context(intent_result.primary_feature)
 
     system_prompt = PromptLibrary.build(
-        intent=intent_result.intent,
         **intent_result.to_prompt_vars(),
         rag_context=domain_ctx,   # domain knowledge acts as RAG until full RAG is wired
     )
