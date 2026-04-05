@@ -1021,11 +1021,32 @@
               </div>
 
               <div class="form-group">
+                <label class="form-label">Browser Mode</label>
+                <div class="options-grid">
+                  <div class="option-card selected" id="opt-headless" onclick="selectBrowserMode(true)">
+                    <div class="option-card-check"></div>
+                    <div>
+                      <div class="option-card-label">🖥️ Headless</div>
+                      <div class="option-card-sub">No browser window — faster, runs anywhere</div>
+                    </div>
+                  </div>
+                  <div class="option-card" id="opt-headed" onclick="selectBrowserMode(false)">
+                    <div class="option-card-check"></div>
+                    <div>
+                      <div class="option-card-label">👁️ UI Mode</div>
+                      <div class="option-card-sub">Opens browser window — see what's happening</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
                 <label class="form-label">Run Summary</label>
                 <div style="background:#f6f8fa;border:1px solid #e1e4e8;border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.8">
                   <div>🌐 <strong>URL:</strong> <span id="ta-summary-url" style="color:var(--accent)">—</span></div>
                   <div>🔑 <strong>Login:</strong> <span id="ta-summary-user">—</span></div>
                   <div>📄 <strong>Pages:</strong> <span id="ta-summary-pages">10</span></div>
+                  <div>🖥️ <strong>Browser:</strong> <span id="ta-summary-mode">Headless</span></div>
                 </div>
               </div>
 
@@ -1167,6 +1188,7 @@
   // ── Test Application state ───────────────────────────────
   let _taLoginStrategy = 'auto_detect';
   let _taExploreMode   = 'full';
+  let _taHeadless      = true;
   let _taLastResult    = null;
 
   function taStep(n) {
@@ -1189,6 +1211,8 @@
       document.getElementById('ta-summary-user').textContent = u || '(no login)';
       document.getElementById('ta-summary-pages').textContent =
         document.getElementById('ta-max-pages').value || '10';
+      document.getElementById('ta-summary-mode').textContent =
+        _taHeadless ? 'Headless (no window)' : 'UI Mode (browser visible)';
     }
     [1,2,3].forEach(i => {
       const el = document.getElementById('ta-step-' + i);
@@ -1213,6 +1237,12 @@
     _taExploreMode = val;
     document.getElementById('opt-full').classList.toggle('selected', val === 'full');
     document.getElementById('opt-selective').classList.toggle('selected', val === 'selective');
+  }
+
+  function selectBrowserMode(headless) {
+    _taHeadless = headless;
+    document.getElementById('opt-headless').classList.toggle('selected',  headless);
+    document.getElementById('opt-headed').classList.toggle('selected', !headless);
   }
 
   // Animate progress steps in sequence while waiting
@@ -1275,7 +1305,7 @@
         max_pages: maxPages,
         explore_mode: _taExploreMode,
         safe_mode: true,
-        headless: true,
+        headless: _taHeadless,
         username_selector: userSel || null,
         password_selector: passSel || null,
         login_button_selector: btnSel || null,
