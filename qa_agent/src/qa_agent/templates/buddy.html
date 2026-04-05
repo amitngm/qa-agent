@@ -493,11 +493,20 @@
       _textBubble = null;
 
       try {
-        const res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
+        let res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({message: text})
         });
+        // Session lost (pod restart / deploy) — auto-recover transparently
+        if (res.status === 404) {
+          await newSession();
+          res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text})
+          });
+        }
         await streamEvents(res, msgWrap);
       } catch(e) {
         appendText(msgWrap, 'Connection error: ' + e.message);
