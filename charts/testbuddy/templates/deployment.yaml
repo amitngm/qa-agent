@@ -136,7 +136,8 @@ spec:
 
       volumes:
         # ── Secret volume: files only, not env vars ───────────────────────────
-        {{- if .Values.secrets.anthropicApiKey }}
+        {{- $hasSecret := or .Values.secrets.anthropicApiKey .Values.secrets.groqApiKey .Values.secrets.openaiApiKey .Values.secrets.geminiApiKey }}
+        {{- if $hasSecret }}
         - name: secrets-vol
           secret:
             secretName: {{ include "testbuddy.secretName" . }}
