@@ -3,602 +3,1046 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TestBuddy · QA Agent</title>
+  <title>TestBuddy · QA Copilot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/static/style.css">
   <style>
-    /* ── Layout ─────────────────────────────────────── */
-    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-    .site-header { flex-shrink: 0; }
-    .buddy-shell {
-      display: flex; flex: 1; overflow: hidden;
-      background: var(--bg, #f8f9fb);
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-bg: #0d1117;
+      --sidebar-border: #21262d;
+      --sidebar-text: #8b949e;
+      --sidebar-active: #1f6feb;
+      --sidebar-hover: #161b22;
+      --topbar-bg: #ffffff;
+      --topbar-border: #e1e4e8;
+      --main-bg: #f6f8fa;
+      --bubble-user-bg: #1f6feb;
+      --bubble-buddy-bg: #ffffff;
+      --bubble-border: #e1e4e8;
+      --accent: #1f6feb;
+      --accent-light: #ddf4ff;
+      --text-primary: #24292f;
+      --text-secondary: #57606a;
+      --text-muted: #8b949e;
+      --red: #cf222e;
+      --orange: #bc4c00;
+      --green: #1a7f37;
+      --yellow: #9a6700;
+      --purple: #8250df;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
     }
 
-    /* ── Sidebar ─────────────────────────────────────── */
-    .buddy-sidebar {
+    html, body { height: 100%; font-family: var(--font); color: var(--text-primary); overflow: hidden; }
+
+    /* ── Shell ─────────────────────────────────────────── */
+    .shell { display: flex; height: 100vh; }
+
+    /* ── Sidebar ─────────────────────────────────────────── */
+    .sidebar {
       width: 260px; flex-shrink: 0;
-      background: #fff;
-      border-right: 1px solid #e8eaed;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
       display: flex; flex-direction: column;
-      padding: 16px 0;
+      overflow: hidden;
     }
-    .sidebar-section { padding: 0 16px 12px; }
-    .sidebar-label {
-      font-size: 10px; font-weight: 700; letter-spacing: .08em;
-      text-transform: uppercase; color: #9aa0ad; margin-bottom: 8px;
+
+    .sidebar-logo {
+      padding: 16px 16px 12px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--sidebar-border);
     }
+    .sidebar-logo-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, #1f6feb, #58a6ff);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .sidebar-logo-text { color: #e6edf3; font-size: 15px; font-weight: 700; }
+    .sidebar-logo-sub  { color: var(--sidebar-text); font-size: 10px; font-weight: 500; letter-spacing: .05em; }
+
+    .sidebar-actions { padding: 12px 12px 8px; }
+    .btn-new-chat {
+      width: 100%; padding: 8px 12px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background .15s;
+    }
+    .btn-new-chat:hover { background: #388bfd; }
+
+    .sidebar-section-label {
+      padding: 12px 16px 6px;
+      font-size: 10px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--sidebar-text);
+    }
+
+    /* Role select */
+    .sidebar-role { padding: 0 12px 12px; }
     .role-select {
-      width: 100%; padding: 6px 10px; border: 1px solid #dde1e7;
-      border-radius: 8px; font-size: 13px; background: #f8f9fb;
-      color: #1a1d23; outline: none;
+      width: 100%; padding: 6px 10px;
+      background: #161b22; border: 1px solid var(--sidebar-border);
+      border-radius: 6px; color: #c9d1d9;
+      font-size: 12px; font-family: var(--font); outline: none;
     }
-    .role-select:focus { border-color: #6c5ce7; }
-    .new-chat-btn {
-      width: 100%; margin: 0 0 12px;
-      padding: 9px 14px;
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-      color: #fff; font-size: 13px; font-weight: 600;
-      border: none; border-radius: 10px; cursor: pointer;
-      transition: opacity .15s;
-    }
-    .new-chat-btn:hover { opacity: .88; }
+    .role-select:focus { border-color: var(--accent); }
 
-    .tool-list { overflow-y: auto; flex: 1; padding: 0 16px; }
-    .tool-item {
+    /* Sessions */
+    .sessions-list { padding: 0 8px; overflow-y: auto; max-height: 140px; flex-shrink: 0; }
+    .session-item {
+      padding: 7px 10px; border-radius: 6px;
+      font-size: 12px; color: var(--sidebar-text);
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: background .12s;
+    }
+    .session-item:hover { background: var(--sidebar-hover); color: #c9d1d9; }
+    .session-item.active { background: #1c2128; color: #58a6ff; }
+    .session-item-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .session-item-dot.old { background: var(--sidebar-text); }
+
+    /* Tools */
+    .tools-scroll { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+    .tool-group-header {
+      padding: 6px 8px 4px;
+      font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: #484f58;
+    }
+    .tool-entry {
+      padding: 5px 8px; border-radius: 5px;
       display: flex; align-items: center; gap: 8px;
-      padding: 5px 0; font-size: 12px; color: #555;
+      font-size: 11px; color: var(--sidebar-text);
+      transition: background .12s; cursor: default;
     }
-    .tool-badge {
-      padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;
-      flex-shrink: 0;
-    }
-    .tool-badge.read       { background: #d4f5e9; color: #1a7a4a; }
-    .tool-badge.write      { background: #fff0d4; color: #8a5500; }
-    .tool-badge.destructive{ background: #fde8e8; color: #b91c1c; }
+    .tool-entry:hover { background: var(--sidebar-hover); color: #c9d1d9; }
+    .tool-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .tool-dot.read { background: #3fb950; }
+    .tool-dot.write { background: #d29922; }
+    .tool-dot.destructive { background: #f85149; }
 
-    /* ── Chat area ───────────────────────────────────── */
-    .buddy-main {
-      flex: 1; display: flex; flex-direction: column; overflow: hidden;
-    }
-    .chat-header {
-      padding: 16px 24px; border-bottom: 1px solid #e8eaed;
-      background: #fff; flex-shrink: 0;
+    /* ── Main panel ─────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--main-bg); }
+
+    /* Topbar */
+    .topbar {
+      padding: 0 20px;
+      height: 52px; flex-shrink: 0;
+      background: var(--topbar-bg);
+      border-bottom: 1px solid var(--topbar-border);
       display: flex; align-items: center; gap: 12px;
     }
-    .chat-header-icon {
-      width: 38px; height: 38px; border-radius: 50%;
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
+    .topbar-brand { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+    .topbar-session {
+      font-size: 12px; color: var(--text-muted);
+      padding: 3px 8px; background: #f3f4f6;
+      border-radius: 20px; font-family: var(--mono);
     }
-    .chat-header-info h2 { font-size: 15px; font-weight: 700; margin: 0; }
-    .chat-header-info p  { font-size: 12px; color: #9aa0ad; margin: 0; }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #34d399; margin-left: auto; flex-shrink: 0;
+    .topbar-spacer { flex: 1; }
+    .topbar-nav { display: flex; gap: 4px; }
+    .topbar-nav a {
+      padding: 5px 10px; font-size: 12px; font-weight: 500;
+      color: var(--text-secondary); text-decoration: none;
+      border-radius: 6px; transition: background .12s, color .12s;
     }
-    .status-dot.thinking { background: #f59e0b; animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .topbar-nav a:hover  { background: var(--main-bg); color: var(--text-primary); }
+    .topbar-nav a.active { color: var(--accent); }
 
-    /* ── Messages ────────────────────────────────────── */
+    /* Intent badge strip */
+    .intent-strip {
+      padding: 0 20px; height: 36px; flex-shrink: 0;
+      background: #fff;
+      border-bottom: 1px solid var(--topbar-border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .intent-badge {
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: .04em;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .intent-badge.TC_GENERATION      { background: #ddf4ff; color: #0969da; }
+    .intent-badge.BUG_INVESTIGATION  { background: #fff8c5; color: #9a6700; }
+    .intent-badge.ENV_ISSUE          { background: #ffebe9; color: #cf222e; }
+    .intent-badge.RCA_LOG_ANALYSIS   { background: #dafbe1; color: #1a7f37; }
+    .intent-badge.AUTOMATION_GEN     { background: #eae6ff; color: #8250df; }
+    .intent-badge.RELEASE_VALIDATION { background: #fff0e8; color: #bc4c00; }
+    .intent-badge.FEATURE_UNDERSTAND { background: #f1f8ff; color: #0550ae; }
+    .intent-badge.GENERAL_QA         { background: #f6f8fa; color: #57606a; }
+    .intent-badge .confidence {
+      opacity: .7; font-size: 10px; font-weight: 500;
+    }
+    .intent-badge.hidden { display: none; }
+
+    .status-indicator {
+      margin-left: auto; display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #3fb950; }
+    .status-dot.thinking { background: #d29922; animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    /* ── Messages ────────────────────────────────────────── */
     .messages {
-      flex: 1; overflow-y: auto; padding: 24px;
-      display: flex; flex-direction: column; gap: 16px;
+      flex: 1; overflow-y: auto;
+      padding: 24px 0;
+      display: flex; flex-direction: column;
     }
-    .msg {
-      max-width: 78%; display: flex; flex-direction: column; gap: 4px;
-    }
-    .msg.user { align-self: flex-end; align-items: flex-end; }
-    .msg.buddy { align-self: flex-start; align-items: flex-start; }
+    .messages::-webkit-scrollbar { width: 5px; }
+    .messages::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 5px; }
 
-    .msg-bubble {
-      padding: 12px 16px; border-radius: 16px;
-      font-size: 14px; line-height: 1.6; white-space: pre-wrap;
+    .msg-row {
+      padding: 2px 24px;
+      display: flex; flex-direction: column;
     }
-    .msg.user  .msg-bubble {
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-      color: #fff; border-bottom-right-radius: 4px;
+    .msg-row.user { align-items: flex-end; }
+    .msg-row.buddy { align-items: flex-start; }
+
+    /* User bubble */
+    .user-bubble {
+      max-width: 72%; padding: 10px 16px;
+      background: var(--bubble-user-bg); color: #fff;
+      border-radius: 16px 16px 4px 16px;
+      font-size: 14px; line-height: 1.6;
+      word-break: break-word;
     }
-    .msg.buddy .msg-bubble {
-      background: #fff; color: #1a1d23;
-      border: 1px solid #e8eaed; border-bottom-left-radius: 4px;
+
+    /* Buddy bubble */
+    .buddy-bubble {
+      max-width: 84%;
+      background: var(--bubble-buddy-bg);
+      border: 1px solid var(--bubble-border);
+      border-radius: 4px 16px 16px 16px;
+      overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,.06);
     }
-    .msg-time { font-size: 10px; color: #b0b8c8; }
+    .buddy-bubble-inner {
+      padding: 14px 18px;
+      font-size: 14px; line-height: 1.7; color: var(--text-primary);
+    }
+    /* Markdown rendered content */
+    .buddy-bubble-inner h1 { font-size: 17px; font-weight: 700; margin: 16px 0 8px; }
+    .buddy-bubble-inner h2 { font-size: 15px; font-weight: 700; margin: 14px 0 6px; border-bottom: 1px solid #e1e4e8; padding-bottom: 6px; }
+    .buddy-bubble-inner h3 { font-size: 14px; font-weight: 700; margin: 12px 0 5px; }
+    .buddy-bubble-inner p  { margin: 0 0 10px; }
+    .buddy-bubble-inner p:last-child { margin: 0; }
+    .buddy-bubble-inner ul, .buddy-bubble-inner ol { margin: 6px 0 10px 20px; }
+    .buddy-bubble-inner li { margin: 3px 0; }
+    .buddy-bubble-inner strong { font-weight: 700; }
+    .buddy-bubble-inner em { font-style: italic; }
+    .buddy-bubble-inner code {
+      font-family: var(--mono); font-size: 12px;
+      background: #f6f8fa; border: 1px solid #e1e4e8;
+      border-radius: 4px; padding: 1px 5px;
+    }
+    .buddy-bubble-inner pre {
+      background: #0d1117; border-radius: 8px;
+      padding: 14px 16px; overflow-x: auto; margin: 10px 0;
+    }
+    .buddy-bubble-inner pre code {
+      background: none; border: none; padding: 0;
+      color: #c9d1d9; font-size: 12px; line-height: 1.7;
+    }
+    .buddy-bubble-inner table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+      margin: 10px 0; border-radius: 6px; overflow: hidden;
+    }
+    .buddy-bubble-inner th {
+      background: #f6f8fa; border: 1px solid #e1e4e8;
+      padding: 7px 12px; text-align: left; font-weight: 600; font-size: 12px;
+    }
+    .buddy-bubble-inner td {
+      border: 1px solid #e1e4e8; padding: 6px 12px; vertical-align: top;
+    }
+    .buddy-bubble-inner tr:nth-child(even) td { background: #f6f8fa; }
+    .buddy-bubble-inner blockquote {
+      border-left: 3px solid #1f6feb; padding: 4px 12px;
+      margin: 8px 0; background: #f1f8ff; border-radius: 0 6px 6px 0;
+    }
+    .buddy-bubble-inner hr { border: none; border-top: 1px solid #e1e4e8; margin: 14px 0; }
 
-    /* Tool call card */
-    .tool-card {
-      background: #f8f9fb; border: 1px solid #e8eaed;
-      border-left: 3px solid #6c5ce7;
-      border-radius: 10px; padding: 10px 14px;
-      font-size: 12px; font-family: 'JetBrains Mono', monospace;
-      max-width: 500px;
+    .msg-time { font-size: 10px; color: var(--text-muted); margin-top: 5px; padding: 0 4px; }
+
+    /* Tool activity */
+    .tool-activity {
+      margin: 6px 0 2px;
+      display: flex; flex-direction: column; gap: 3px;
     }
-    .tool-card.write   { border-left-color: #f59e0b; }
-    .tool-card.destructive { border-left-color: #ef4444; }
-    .tool-card-header {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 6px; cursor: pointer;
+    .tool-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-family: var(--mono);
+      border: 1px solid transparent; cursor: pointer;
+      transition: all .15s; max-width: 480px;
+      background: #f6f8fa; border-color: #e1e4e8; color: var(--text-secondary);
     }
-    .tool-card-name { font-weight: 600; color: #374151; font-size: 12px; }
-    .tool-card-toggle { margin-left: auto; font-size: 11px; color: #9aa0ad; }
-    .tool-card-body { color: #555; overflow: hidden; }
-    .tool-card-body.collapsed { max-height: 0; }
-    .tool-card-body pre {
-      margin: 0; white-space: pre-wrap; word-break: break-all;
-      font-size: 11px; max-height: 200px; overflow-y: auto;
+    .tool-pill:hover { background: #eaeef2; }
+    .tool-pill.calling { border-color: #b6d4fb; background: #ddf4ff; color: #0550ae; }
+    .tool-pill.ok      { border-color: #9de3b0; background: #dafbe1; color: #1a7f37; }
+    .tool-pill.fail    { border-color: #fdb8c0; background: #ffebe9; color: #cf222e; }
+    .tool-pill.write   { border-color: #fbd8a4; background: #fff8c5; color: #9a6700; }
+    .tool-pill.destructive { border-color: #fdb8c0; background: #ffebe9; color: #cf222e; }
+    .tool-pill-icon    { font-size: 12px; }
+    .tool-pill-name    { font-weight: 600; }
+    .tool-pill-detail  { opacity: .7; font-size: 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Tool detail expand */
+    .tool-detail {
+      margin: 2px 0 4px 10px;
+      padding: 8px 12px;
+      background: #0d1117; border-radius: 6px;
+      font-family: var(--mono); font-size: 11px; color: #c9d1d9;
+      white-space: pre-wrap; word-break: break-all;
+      max-height: 240px; overflow-y: auto;
+      display: none;
     }
-    .tool-result-ok   { color: #059669; }
-    .tool-result-fail { color: #dc2626; }
+    .tool-detail.open { display: block; }
 
     /* Approval card */
     .approval-card {
-      background: #fffbeb; border: 1px solid #fcd34d;
-      border-radius: 12px; padding: 16px 20px;
       max-width: 480px;
+      background: #fff8c5; border: 1px solid #e3b341;
+      border-radius: 10px; padding: 16px 20px;
+      margin: 6px 0;
     }
-    .approval-card h3 { font-size: 14px; font-weight: 700; margin: 0 0 6px; color: #92400e; }
-    .approval-card p  { font-size: 13px; color: #78350f; margin: 0 0 14px; }
-    .approval-meta {
-      display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+    .approval-title {
+      font-size: 13px; font-weight: 700; color: #7d4e00;
+      margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
     }
-    .approval-meta span {
-      padding: 2px 8px; border-radius: 6px;
-      font-size: 11px; font-weight: 600;
-      background: #fde68a; color: #78350f;
+    .approval-desc { font-size: 13px; color: #5c3d00; margin-bottom: 12px; line-height: 1.5; }
+    .approval-tags { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .approval-tag {
+      padding: 2px 8px; background: #fde68a; color: #78350f;
+      border-radius: 4px; font-size: 11px; font-weight: 600;
     }
-    .approval-actions { display: flex; gap: 10px; }
+    .approval-btns { display: flex; gap: 8px; }
     .btn-approve {
-      padding: 8px 20px; background: #6c5ce7; color: #fff;
-      border: none; border-radius: 8px; font-size: 13px;
-      font-weight: 600; cursor: pointer;
+      padding: 7px 18px; background: #1f6feb; color: #fff;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background .15s;
     }
-    .btn-approve:hover { background: #5a4bd1; }
+    .btn-approve:hover { background: #388bfd; }
     .btn-deny {
-      padding: 8px 20px; background: #f3f4f6; color: #374151;
-      border: 1px solid #d1d5db; border-radius: 8px;
-      font-size: 13px; font-weight: 600; cursor: pointer;
+      padding: 7px 18px; background: #f6f8fa; color: var(--text-secondary);
+      border: 1px solid #d0d7de; border-radius: 6px;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
     }
-    .btn-deny:hover { background: #e5e7eb; }
+    .btn-deny:hover { background: #eaeef2; }
 
-    /* Typing indicator */
-    .typing { display: flex; align-items: center; gap: 4px; padding: 10px 14px; }
-    .typing span {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #a29bfe; display: inline-block;
-      animation: bounce 1.2s infinite;
+    /* Typing */
+    .typing-dots { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; }
+    .typing-dots span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #8c959f; display: inline-block;
+      animation: tdot 1.3s ease-in-out infinite;
     }
-    .typing span:nth-child(2) { animation-delay: .2s; }
-    .typing span:nth-child(3) { animation-delay: .4s; }
-    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes tdot { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
 
-    /* Welcome */
+    /* ── Welcome screen ─────────────────────────────────── */
     .welcome {
-      text-align: center; margin: auto;
-      color: #9aa0ad; padding: 40px 24px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; flex: 1; padding: 40px 24px; text-align: center;
     }
-    .welcome-icon { font-size: 56px; margin-bottom: 16px; }
-    .welcome h2 { font-size: 20px; font-weight: 700; color: #374151; margin: 0 0 8px; }
-    .welcome p  { font-size: 14px; line-height: 1.6; max-width: 440px; margin: 0 auto 24px; }
-    .suggestion-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .suggestion {
-      padding: 8px 14px; background: #fff; border: 1px solid #e8eaed;
-      border-radius: 20px; font-size: 12px; cursor: pointer; color: #374151;
-      transition: all .15s;
+    .welcome-logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, #1f6feb, #58a6ff);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(31,111,235,.25);
     }
-    .suggestion:hover { border-color: #6c5ce7; color: #6c5ce7; background: #f5f3ff; }
-    .suggestion-primary {
-      background: linear-gradient(135deg, #f5f3ff, #ede9fe);
-      border-color: #c4b5fd; color: #5b21b6; font-weight: 600;
-    }
-    .suggestion-primary:hover { background: linear-gradient(135deg, #ede9fe, #ddd6fe); border-color: #6c5ce7; color: #4c1d95; }
+    .welcome h2 { font-size: 22px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px; }
+    .welcome-sub { font-size: 14px; color: var(--text-secondary); max-width: 420px; line-height: 1.6; margin-bottom: 28px; }
 
-    /* Input bar */
-    .input-bar {
-      padding: 16px 24px; background: #fff;
-      border-top: 1px solid #e8eaed; flex-shrink: 0;
+    .domain-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 20px; }
+    .domain-chip {
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+      border: 1px solid; cursor: default;
     }
-    .input-row {
-      display: flex; gap: 10px; align-items: flex-end;
-      background: #f8f9fb; border: 1.5px solid #e8eaed;
-      border-radius: 14px; padding: 10px 14px;
+    .domain-chip.compute  { background: #fff8f0; border-color: #f0b84d; color: #874d00; }
+    .domain-chip.network  { background: #f0f7ff; border-color: #58a6ff; color: #0550ae; }
+    .domain-chip.storage  { background: #fdf0ff; border-color: #bc8cff; color: #6e40c9; }
+    .domain-chip.platform { background: #f0fff4; border-color: #56d364; color: #116329; }
+
+    .suggestion-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px; }
+    .suggestion {
+      padding: 8px 16px; background: #fff;
+      border: 1px solid #d0d7de; border-radius: 8px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      color: var(--text-primary); transition: all .15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .suggestion:hover { border-color: var(--accent); color: var(--accent); background: #f1f8ff; }
+    .suggestion.primary { background: #ddf4ff; border-color: #79c0ff; color: #0550ae; }
+    .suggestion.primary:hover { background: #cae8ff; }
+
+    /* ── Input area ─────────────────────────────────────── */
+    .input-area {
+      padding: 12px 20px 16px;
+      background: var(--topbar-bg); border-top: 1px solid var(--topbar-border);
+      flex-shrink: 0;
+    }
+    .input-context-chips {
+      display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .context-chip {
+      padding: 3px 10px; border-radius: 20px;
+      background: #f6f8fa; border: 1px solid #d0d7de;
+      font-size: 11px; color: var(--text-secondary);
+      cursor: pointer; transition: all .12s;
+    }
+    .context-chip:hover { border-color: var(--accent); color: var(--accent); background: #f1f8ff; }
+    .context-chip.active { background: #ddf4ff; border-color: #79c0ff; color: #0550ae; }
+
+    .input-box {
+      display: flex; align-items: flex-end; gap: 10px;
+      background: #f6f8fa; border: 1.5px solid #d0d7de;
+      border-radius: 10px; padding: 10px 12px;
       transition: border-color .15s;
     }
-    .input-row:focus-within { border-color: #6c5ce7; }
+    .input-box:focus-within { border-color: var(--accent); background: #fff; }
     #chat-input {
       flex: 1; border: none; background: transparent;
       font-size: 14px; resize: none; outline: none;
-      font-family: inherit; color: #1a1d23;
-      max-height: 120px; min-height: 22px;
+      font-family: var(--font); color: var(--text-primary);
+      max-height: 120px; min-height: 22px; line-height: 1.5;
     }
+    #chat-input::placeholder { color: #8c959f; }
     .send-btn {
-      width: 34px; height: 34px; border-radius: 8px;
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-      border: none; cursor: pointer; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 16px; transition: opacity .15s;
+      width: 34px; height: 34px; border-radius: 7px;
+      background: var(--accent); border: none;
+      color: #fff; font-size: 15px; cursor: pointer;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
     }
-    .send-btn:hover { opacity: .85; }
-    .send-btn:disabled { opacity: .4; cursor: default; }
+    .send-btn:hover { background: #388bfd; }
+    .send-btn:disabled { background: #8c959f; cursor: default; }
 
-    /* Scrollbar */
-    .messages::-webkit-scrollbar { width: 4px; }
-    .messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    .input-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; text-align: right; }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <header class="site-header">
-    <div class="brand">
-      <a href="/ui/run"><span class="brand-icon">⚡</span> QA Agent</a>
+<div class="shell">
+
+  <!-- ── Sidebar ──────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🧠</div>
+      <div>
+        <div class="sidebar-logo-text">TestBuddy</div>
+        <div class="sidebar-logo-sub">QA Copilot</div>
+      </div>
     </div>
-    <nav class="nav" aria-label="Main">
-      <a href="/ui/run">New Run</a>
-      <a href="/ui/record">Recorder</a>
-      <a href="/ui/history">History</a>
-      <a href="/buddy" class="active">TestBuddy</a>
-    </nav>
-  </header>
 
-  <div class="buddy-shell">
-    <!-- Sidebar -->
-    <aside class="buddy-sidebar">
-      <div class="sidebar-section">
-        <button class="new-chat-btn" onclick="newSession()">+ New Chat</button>
-        <div class="sidebar-label">Your Role</div>
-        <select class="role-select" id="role-select" onchange="newSession()">
-          <option value="viewer">Viewer (read only)</option>
-          <option value="tester" selected>Tester (read + write)</option>
-          <option value="operator">Operator (+ destructive)</option>
-          <option value="admin">Admin (no approval)</option>
-        </select>
-      </div>
-      <div class="sidebar-section" style="margin-top:16px">
-        <div class="sidebar-label">Available Tools</div>
-      </div>
-      <div class="tool-list" id="tool-list">
-        <div style="font-size:12px;color:#b0b8c8">Loading tools…</div>
-      </div>
-    </aside>
+    <div class="sidebar-actions">
+      <button class="btn-new-chat" onclick="newSession()">
+        <span>+</span> New Chat
+      </button>
+    </div>
 
-    <!-- Main chat -->
-    <main class="buddy-main">
-      <div class="chat-header">
-        <div class="chat-header-icon">🤖</div>
-        <div class="chat-header-info">
-          <h2>TestBuddy</h2>
-          <p id="session-label">No session</p>
-        </div>
+    <div class="sidebar-section-label">Role</div>
+    <div class="sidebar-role">
+      <select class="role-select" id="role-select" onchange="newSession()">
+        <option value="viewer">Viewer — read only</option>
+        <option value="tester" selected>Tester — read + write</option>
+        <option value="operator">Operator — + destructive</option>
+        <option value="admin">Admin — no approval</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section-label">Sessions</div>
+    <div class="sessions-list" id="sessions-list">
+      <div class="session-item">
+        <span class="session-item-dot"></span>
+        <span id="current-session-label">No session</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section-label" style="margin-top:8px">Tools</div>
+    <div class="tools-scroll" id="tool-list">
+      <div style="font-size:11px;color:#484f58;padding:4px 8px">Loading…</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <span class="topbar-brand">TestBuddy</span>
+      <span class="topbar-session" id="session-label-top">—</span>
+      <div class="topbar-spacer"></div>
+      <nav class="topbar-nav">
+        <a href="/ui/run">Runs</a>
+        <a href="/ui/record">Recorder</a>
+        <a href="/ui/history">History</a>
+        <a href="/buddy" class="active">Buddy</a>
+      </nav>
+    </div>
+
+    <!-- Intent strip -->
+    <div class="intent-strip">
+      <div class="intent-badge hidden" id="intent-badge">
+        <span id="intent-icon">🔍</span>
+        <span id="intent-label">—</span>
+        <span class="confidence" id="intent-confidence"></span>
+      </div>
+      <div class="status-indicator">
         <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Ready</span>
       </div>
+    </div>
 
-      <div class="messages" id="messages">
-        <div class="welcome" id="welcome">
-          <div class="welcome-icon">🤖</div>
-          <h2>TestBuddy</h2>
-          <p>Your AI platform testing assistant. Ask me to investigate issues,
-             check services, query databases, inspect pods, or run health checks.</p>
-          <div class="suggestion-grid">
-            <span class="suggestion suggestion-primary" onclick="send('Scan all pods in the default namespace for issues and give me a full issue report')">🔍 Scan all pods for issues</span>
-            <span class="suggestion suggestion-primary" onclick="send('Analyze logs for issues and suggest fixes — which pod should I check?')">📋 Analyze pod logs for errors</span>
-            <span class="suggestion" onclick="send('Why is my service unhealthy? Check all pods in default namespace')">Why is my service unhealthy?</span>
-            <span class="suggestion" onclick="send('Show me recent warning events in default namespace')">Recent K8s warnings</span>
-            <span class="suggestion" onclick="send('Check health of http://localhost:8080')">Check service health</span>
-            <span class="suggestion" onclick="send('List all namespaces in the cluster')">List all namespaces</span>
-            <span class="suggestion" onclick="send('List all database connections configured')">What DBs are connected?</span>
-            <span class="suggestion" onclick="send('Show available tools')">What can you do?</span>
-          </div>
+    <!-- Messages -->
+    <div class="messages" id="messages">
+      <!-- Welcome screen -->
+      <div class="welcome" id="welcome">
+        <div class="welcome-logo">🧠</div>
+        <h2>TestBuddy · QA Copilot</h2>
+        <p class="welcome-sub">
+          Classify intent, investigate bugs, generate test cases, analyze logs,
+          validate releases — powered by live platform access.
+        </p>
+
+        <div class="domain-chips">
+          <span class="domain-chip compute">VM</span>
+          <span class="domain-chip compute">Kubernetes</span>
+          <span class="domain-chip compute">Snapshot</span>
+          <span class="domain-chip network">VPC</span>
+          <span class="domain-chip network">Load Balancer</span>
+          <span class="domain-chip network">Security Group</span>
+          <span class="domain-chip storage">Volume</span>
+          <span class="domain-chip storage">Object Storage</span>
+          <span class="domain-chip platform">DBaaS</span>
+          <span class="domain-chip platform">Auth / Keycloak</span>
+          <span class="domain-chip platform">Monitoring</span>
         </div>
-      </div>
 
-      <div class="input-bar">
-        <div class="input-row">
-          <textarea id="chat-input" placeholder="Ask TestBuddy anything…" rows="1"
-            onkeydown="onKey(event)" oninput="autoResize(this)"></textarea>
-          <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send">▶</button>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <script>
-    let sessionId = null;
-    let isThinking = false;
-
-    // ── Init ────────────────────────────────────────────
-    window.addEventListener('DOMContentLoaded', () => {
-      loadTools();
-      newSession();
-    });
-
-    async function loadTools() {
-      try {
-        const res = await fetch('/buddy/tools');
-        const data = await res.json();
-        const list = document.getElementById('tool-list');
-        list.innerHTML = data.tools.map(t => `
-          <div class="tool-item">
-            <span class="tool-badge ${t.risk_level}">${t.risk_level}</span>
-            <span title="${t.description}">${t.name}</span>
-          </div>`).join('');
-      } catch(e) { console.error(e); }
-    }
-
-    async function newSession() {
-      const role = document.getElementById('role-select').value;
-      try {
-        const res = await fetch('/buddy/sessions', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({user: 'user', role})
-        });
-        const data = await res.json();
-        sessionId = data.session_id;
-        document.getElementById('session-label').textContent =
-          `Session · ${data.role} · ${data.session_id.slice(0,8)}`;
-        clearMessages();
-      } catch(e) { alert('Failed to create session: ' + e); }
-    }
-
-    // ── Message rendering ───────────────────────────────
-
-    function clearMessages() {
-      const msgs = document.getElementById('messages');
-      msgs.innerHTML = `<div class="welcome" id="welcome">
-        <div class="welcome-icon">🤖</div>
-        <h2>TestBuddy</h2>
-        <p>Your AI platform testing assistant. Ask me to investigate issues,
-           check services, query databases, inspect pods, or run health checks.</p>
         <div class="suggestion-grid">
-          <span class="suggestion" onclick="send('Why is my service unhealthy? Check all pods in default namespace')">Why is my service unhealthy?</span>
-          <span class="suggestion" onclick="send('List all namespaces in the cluster')">List all namespaces</span>
-          <span class="suggestion" onclick="send('Check health of http://localhost:8080')">Check service health</span>
-          <span class="suggestion" onclick="send('Show me recent warning events in default namespace')">Recent K8s warnings</span>
-          <span class="suggestion" onclick="send('List all database connections configured')">What DBs are connected?</span>
-          <span class="suggestion" onclick="send(\'What can you do?\')">What can you do?</span>
+          <span class="suggestion primary" onclick="send('Scan all pods in the default namespace for issues and give me a full issue report')">
+            🔍 Scan all pods for issues
+          </span>
+          <span class="suggestion primary" onclick="send('Generate test cases for VPC create, update, and delete flows')">
+            📋 Generate VPC test cases
+          </span>
+          <span class="suggestion" onclick="send('Why is my service not responding? Investigate pods in default namespace')">
+            🐛 Investigate service failure
+          </span>
+          <span class="suggestion" onclick="send('Analyze pod logs in default namespace and identify root cause')">
+            📊 RCA from pod logs
+          </span>
+          <span class="suggestion" onclick="send('Is the platform ready for release? Run regression scope analysis')">
+            🚀 Release readiness check
+          </span>
+          <span class="suggestion" onclick="send('Generate automation plan for VM lifecycle flows')">
+            ⚙️ VM automation plan
+          </span>
+          <span class="suggestion" onclick="send('Show me recent warning events in default namespace')">
+            ⚠️ Recent K8s warnings
+          </span>
+          <span class="suggestion" onclick="send('What can you do?')">
+            💡 What can you do?
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-context-chips" id="context-chips">
+        <span class="context-chip" onclick="prefixInput('VM: ')">VM</span>
+        <span class="context-chip" onclick="prefixInput('VPC: ')">VPC</span>
+        <span class="context-chip" onclick="prefixInput('Kubernetes: ')">K8s</span>
+        <span class="context-chip" onclick="prefixInput('Volume: ')">Volume</span>
+        <span class="context-chip" onclick="prefixInput('DBaaS: ')">DB</span>
+        <span class="context-chip" onclick="prefixInput('Auth: ')">Auth</span>
+        <span class="context-chip" onclick="prefixInput('Generate test cases for ')">Test Cases</span>
+        <span class="context-chip" onclick="prefixInput('Investigate why ')">Investigate</span>
+        <span class="context-chip" onclick="prefixInput('Analyze logs for ')">Analyze Logs</span>
+      </div>
+      <div class="input-box">
+        <textarea id="chat-input"
+          placeholder="Ask anything — investigate an issue, generate test cases, scan logs…"
+          rows="1"
+          onkeydown="onKey(event)"
+          oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">▶</button>
+      </div>
+      <div class="input-hint">Enter to send · Shift+Enter for new line</div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+  // ── State ───────────────────────────────────────────────
+  let sessionId = null;
+  let isThinking = false;
+  const INTENT_META = {
+    TC_GENERATION:      { icon: '📋', label: 'Test Generation',     cls: 'TC_GENERATION' },
+    BUG_INVESTIGATION:  { icon: '🐛', label: 'Bug Investigation',   cls: 'BUG_INVESTIGATION' },
+    ENV_ISSUE:          { icon: '🔴', label: 'Environment Issue',   cls: 'ENV_ISSUE' },
+    RCA_LOG_ANALYSIS:   { icon: '📊', label: 'RCA / Log Analysis',  cls: 'RCA_LOG_ANALYSIS' },
+    AUTOMATION_GEN:     { icon: '⚙️', label: 'Automation Plan',     cls: 'AUTOMATION_GEN' },
+    RELEASE_VALIDATION: { icon: '🚀', label: 'Release Validation',  cls: 'RELEASE_VALIDATION' },
+    FEATURE_UNDERSTAND: { icon: '💡', label: 'Feature Understand',  cls: 'FEATURE_UNDERSTAND' },
+    GENERAL_QA:         { icon: '🔍', label: 'General QA',          cls: 'GENERAL_QA' },
+  };
+
+  // ── Init ────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    loadTools();
+    newSession();
+  });
+
+  // ── Tools ───────────────────────────────────────────────
+  async function loadTools() {
+    try {
+      const res  = await fetch('/buddy/tools');
+      const data = await res.json();
+      const list = document.getElementById('tool-list');
+      const groups = { read: [], write: [], destructive: [] };
+      data.tools.forEach(t => { (groups[t.risk_level] || groups.read).push(t); });
+      const groupLabels = { read: '🟢 Read', write: '🟡 Write', destructive: '🔴 Destructive' };
+      list.innerHTML = Object.entries(groups).filter(([,v]) => v.length).map(([risk, tools]) => `
+        <div class="tool-group-header">${groupLabels[risk]}</div>
+        ${tools.map(t => `
+          <div class="tool-entry" title="${escHtml(t.description)}">
+            <span class="tool-dot ${risk}"></span>
+            <span>${t.name}</span>
+          </div>`).join('')}
+      `).join('');
+    } catch(e) { console.error('loadTools:', e); }
+  }
+
+  // ── Session ─────────────────────────────────────────────
+  async function newSession() {
+    const role = document.getElementById('role-select').value;
+    try {
+      const res  = await fetch('/buddy/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: 'user', role }),
+      });
+      const data = await res.json();
+      sessionId = data.session_id;
+      const short = data.session_id.slice(0, 8);
+      document.getElementById('session-label-top').textContent =
+        `${data.role} · ${short}`;
+      document.getElementById('current-session-label').textContent =
+        `${data.role} · ${short}`;
+      clearMessages();
+      resetIntentBadge();
+    } catch(e) { alert('Failed to create session: ' + e); }
+  }
+
+  // ── Intent badge ────────────────────────────────────────
+  function showIntentBadge(intent, confidence) {
+    const badge = document.getElementById('intent-badge');
+    const meta  = INTENT_META[intent] || INTENT_META.GENERAL_QA;
+    badge.className = `intent-badge ${meta.cls}`;
+    document.getElementById('intent-icon').textContent = meta.icon;
+    document.getElementById('intent-label').textContent = meta.label;
+    document.getElementById('intent-confidence').textContent = confidence ? `· ${confidence}` : '';
+  }
+
+  function resetIntentBadge() {
+    document.getElementById('intent-badge').className = 'intent-badge hidden';
+  }
+
+  // ── Message rendering ────────────────────────────────────
+  function clearMessages() {
+    document.getElementById('messages').innerHTML = `
+      <div class="welcome" id="welcome">
+        <div class="welcome-logo">🧠</div>
+        <h2>TestBuddy · QA Copilot</h2>
+        <p class="welcome-sub">Classify intent, investigate bugs, generate test cases, analyze logs, validate releases — powered by live platform access.</p>
+        <div class="domain-chips">
+          <span class="domain-chip compute">VM</span>
+          <span class="domain-chip compute">Kubernetes</span>
+          <span class="domain-chip network">VPC</span>
+          <span class="domain-chip network">Load Balancer</span>
+          <span class="domain-chip storage">Volume</span>
+          <span class="domain-chip platform">DBaaS</span>
+          <span class="domain-chip platform">Auth</span>
+        </div>
+        <div class="suggestion-grid">
+          <span class="suggestion primary" onclick="send('Scan all pods in the default namespace for issues and give me a full issue report')">🔍 Scan all pods for issues</span>
+          <span class="suggestion primary" onclick="send('Generate test cases for VPC create, update, and delete flows')">📋 Generate VPC test cases</span>
+          <span class="suggestion" onclick="send('Why is my service not responding? Investigate pods in default namespace')">🐛 Investigate failure</span>
+          <span class="suggestion" onclick="send('Analyze pod logs in default namespace and identify root cause')">📊 RCA from logs</span>
+          <span class="suggestion" onclick="send('Is the platform ready for release? Run regression scope analysis')">🚀 Release readiness</span>
+          <span class="suggestion" onclick="send('What can you do?')">💡 Capabilities</span>
         </div>
       </div>`;
+  }
+
+  function hideWelcome() {
+    document.getElementById('welcome')?.remove();
+  }
+
+  function appendUserMsg(text) {
+    hideWelcome();
+    const msgs = document.getElementById('messages');
+    const row  = document.createElement('div');
+    row.className = 'msg-row user';
+    row.innerHTML = `<div class="user-bubble">${escHtml(text)}</div>
+      <div class="msg-time">${nowStr()}</div>`;
+    msgs.appendChild(row);
+    scrollBottom();
+  }
+
+  function createBuddyRow() {
+    hideWelcome();
+    const msgs = document.getElementById('messages');
+    const row  = document.createElement('div');
+    row.className = 'msg-row buddy';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'buddy-bubble';
+
+    const inner = document.createElement('div');
+    inner.className = 'buddy-bubble-inner';
+    inner.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div>`;
+    inner.id = 'typing-inner';
+
+    bubble.appendChild(inner);
+    row.appendChild(bubble);
+    row.appendChild(Object.assign(document.createElement('div'), { className: 'msg-time', textContent: nowStr() }));
+    msgs.appendChild(row);
+    scrollBottom();
+    return row;
+  }
+
+  let _currentTextEl = null;
+  let _currentRawText = '';
+
+  function appendText(row, text) {
+    const inner = row.querySelector('.buddy-bubble-inner');
+    const typing = inner?.querySelector('.typing-dots, #typing-inner .typing-dots');
+    if (typing) typing.remove();
+    if (!inner.id || inner.id === 'typing-inner') {
+      inner.id = 'buddy-inner-' + Date.now();
     }
 
-    function hideWelcome() {
-      const w = document.getElementById('welcome');
-      if (w) w.remove();
+    if (!_currentTextEl) {
+      _currentTextEl = document.createElement('div');
+      _currentTextEl.className = 'md-content';
+      inner.appendChild(_currentTextEl);
+    }
+    _currentRawText += text;
+    _currentTextEl.innerHTML = renderMarkdown(_currentRawText);
+    scrollBottom();
+  }
+
+  function appendToolPill(row, event) {
+    const inner = row.querySelector('.buddy-bubble-inner');
+    if (inner) {
+      const typing = inner.querySelector('.typing-dots');
+      if (typing && !_currentTextEl) typing.remove();
     }
 
-    function appendUserMsg(text) {
-      hideWelcome();
-      const msgs = document.getElementById('messages');
-      const div = document.createElement('div');
-      div.className = 'msg user';
-      div.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div>
-        <div class="msg-time">${nowStr()}</div>`;
-      msgs.appendChild(div);
-      scrollBottom();
+    const isResult = event.type === 'tool_result';
+    const risk     = event.risk || 'read';
+    const pillId   = 'pill-' + (event.name || '') + '-' + Date.now();
+    const detailId = 'detail-' + pillId;
+
+    let pillClass = isResult ? (event.ok ? 'ok' : 'fail') : 'calling';
+    if (!isResult && (risk === 'write')) pillClass = 'write';
+    if (!isResult && risk === 'destructive') pillClass = 'destructive';
+
+    const icon  = isResult ? (event.ok ? '✓' : '✗') : '⟳';
+    const label = event.name || '';
+    const detail = isResult
+      ? (event.data || '(no output)').slice(0, 2000)
+      : JSON.stringify(event.params || {}, null, 2);
+
+    // Check if pill for this call already exists (update to result state)
+    const existing = row.querySelector(`[data-tool="${label}"].calling`);
+    if (existing && isResult) {
+      existing.className = `tool-pill ${pillClass}`;
+      existing.querySelector('.tool-pill-icon').textContent = icon;
+      return;
     }
 
-    function createBuddyMsg() {
-      hideWelcome();
-      const msgs = document.getElementById('messages');
-      const wrap = document.createElement('div');
-      wrap.className = 'msg buddy';
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="tool-pill ${pillClass}" id="${pillId}" data-tool="${label}"
+           onclick="toggleDetail('${detailId}')">
+        <span class="tool-pill-icon">${icon}</span>
+        <span class="tool-pill-name">${escHtml(label)}</span>
+        <span class="tool-pill-detail">${escHtml(detail.slice(0,60).replace(/\n/g,' '))}</span>
+      </div>
+      <pre class="tool-detail" id="${detailId}">${escHtml(detail)}</pre>`;
 
-      const typing = document.createElement('div');
-      typing.className = 'msg-bubble';
-      typing.innerHTML = `<div class="typing"><span></span><span></span><span></span></div>`;
-      typing.id = 'typing-bubble';
+    // Insert before time div in the row
+    row.insertBefore(wrap, row.lastElementChild);
+    scrollBottom();
+  }
 
-      const time = document.createElement('div');
-      time.className = 'msg-time';
-      time.textContent = nowStr();
+  function toggleDetail(id) {
+    document.getElementById(id)?.classList.toggle('open');
+  }
 
-      wrap.appendChild(typing);
-      wrap.appendChild(time);
-      msgs.appendChild(wrap);
-      scrollBottom();
-      return wrap;
+  function appendApprovalCard(row, approval) {
+    const inner = row.querySelector('.buddy-bubble-inner');
+    if (inner) inner.querySelector('.typing-dots')?.remove();
+
+    const card = document.createElement('div');
+    card.className = 'approval-card';
+    card.id = 'approval-card';
+    card.innerHTML = `
+      <div class="approval-title">⚠️ Approval Required</div>
+      <div class="approval-desc">${escHtml(approval.description)}</div>
+      <div class="approval-tags">
+        <span class="approval-tag">tool: ${escHtml(approval.tool_name)}</span>
+        <span class="approval-tag">risk: ${escHtml(approval.risk_level)}</span>
+        ${approval.snap_id ? `<span class="approval-tag">snap: ${escHtml(approval.snap_id)}</span>` : ''}
+      </div>
+      <div class="approval-btns">
+        <button class="btn-approve" onclick="submitApproval(true)">Approve</button>
+        <button class="btn-deny" onclick="submitApproval(false)">Cancel</button>
+      </div>`;
+    row.insertBefore(card, row.lastElementChild);
+    scrollBottom();
+  }
+
+  // ── Markdown renderer ───────────────────────────────────
+  function renderMarkdown(text) {
+    let html = escHtml(text);
+
+    // Unescape for markdown processing
+    html = text;
+
+    // Code blocks (``` ... ```)
+    html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre><code class="lang-${lang}">${escHtml(code.trim())}</code></pre>`);
+
+    // Inline code
+    html = html.replace(/`([^`\n]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`);
+
+    // Tables (simple: | col | col |)
+    html = html.replace(/((?:\|[^\n]+\|\n?)+)/g, (block) => {
+      const rows = block.trim().split('\n').filter(r => r.trim());
+      if (rows.length < 2) return block;
+      const isSep = r => /^\|[-: |]+\|$/.test(r.trim());
+      const toTd = (row, tag) => row.split('|').slice(1,-1)
+        .map(c => `<${tag}>${c.trim()}</${tag}>`).join('');
+      let out = '<table>';
+      rows.forEach((r, i) => {
+        if (isSep(r)) return;
+        if (i === 0) out += `<tr>${toTd(r,'th')}</tr>`;
+        else if (!isSep(rows[i-1] || '') || i > 1) out += `<tr>${toTd(r,'td')}</tr>`;
+      });
+      return out + '</table>';
+    });
+
+    // HR
+    html = html.replace(/^---$/gm, '<hr>');
+
+    // Headings
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+    // Bold + italic
+    html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Blockquote
+    html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+    // Unordered list
+    html = html.replace(/((?:^[-*] .+\n?)+)/gm, (block) => {
+      const items = block.trim().split('\n')
+        .map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
+      return `<ul>${items}</ul>`;
+    });
+
+    // Ordered list
+    html = html.replace(/((?:^\d+\. .+\n?)+)/gm, (block) => {
+      const items = block.trim().split('\n')
+        .map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
+      return `<ol>${items}</ol>`;
+    });
+
+    // Paragraphs: double newline → paragraph break, single → <br>
+    html = html.replace(/\n\n+/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+    html = '<p>' + html + '</p>';
+
+    // Clean up empty paragraphs and paragraph-wrapped block elements
+    html = html.replace(/<p>\s*<\/(ul|ol|table|pre|h[1-6]|hr|blockquote)>/g, '</$1>');
+    html = html.replace(/<p>\s*(<(?:ul|ol|table|pre|h[1-6]|hr|blockquote)[^>]*>)/g, '$1');
+    html = html.replace(/<p>\s*<\/p>/g, '');
+
+    return html;
+  }
+
+  // ── Send / receive ──────────────────────────────────────
+  function send(text) {
+    document.getElementById('chat-input').value = text;
+    sendMessage();
+  }
+
+  function prefixInput(prefix) {
+    const input = document.getElementById('chat-input');
+    if (!input.value.startsWith(prefix)) {
+      input.value = prefix + input.value;
+    }
+    input.focus();
+    autoResize(input);
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text  = input.value.trim();
+    if (!text || isThinking) return;
+    if (!sessionId) {
+      await newSession();
+      if (!sessionId) { alert('Could not create session. Try refreshing.'); return; }
     }
 
-    let _textBubble = null;
+    input.value = '';
+    autoResize(input);
+    setThinking(true);
+    appendUserMsg(text);
 
-    function appendText(msgWrap, text) {
-      const typing = msgWrap.querySelector('#typing-bubble');
-      if (typing) typing.remove();
+    const row = createBuddyRow();
+    _currentTextEl  = null;
+    _currentRawText = '';
 
-      if (!_textBubble) {
-        _textBubble = document.createElement('div');
-        _textBubble.className = 'msg-bubble';
-        msgWrap.insertBefore(_textBubble, msgWrap.lastChild);
-      }
-      _textBubble.textContent += text;
-      scrollBottom();
-    }
-
-    function appendToolCard(msgWrap, event) {
-      const typing = msgWrap.querySelector('#typing-bubble');
-      if (typing) typing.remove();
-
-      const risk = event.risk || 'read';
-      const isResult = event.type === 'tool_result';
-      const card = document.createElement('div');
-      card.className = `tool-card ${risk}`;
-
-      const icon = isResult ? (event.ok ? '✓' : '✗') : '⟳';
-      const statusClass = isResult ? (event.ok ? 'tool-result-ok' : 'tool-result-fail') : '';
-      const body = isResult ? (event.data || '') : JSON.stringify(event.params || {}, null, 2);
-
-      card.innerHTML = `
-        <div class="tool-card-header" onclick="toggleCard(this)">
-          <span style="font-size:12px">${icon}</span>
-          <span class="tool-card-name ${statusClass}">${event.name}</span>
-          <span class="tool-card-toggle">▼ show</span>
-        </div>
-        <div class="tool-card-body collapsed">
-          <pre>${escHtml(body.slice(0, 1000))}</pre>
-        </div>`;
-      msgWrap.insertBefore(card, msgWrap.lastChild);
-      scrollBottom();
-    }
-
-    function appendApprovalCard(msgWrap, approval) {
-      const typing = msgWrap.querySelector('#typing-bubble');
-      if (typing) typing.remove();
-
-      const card = document.createElement('div');
-      card.className = 'approval-card';
-      card.id = 'approval-card';
-      card.innerHTML = `
-        <h3>⚠️ Action Requires Approval</h3>
-        <p>${escHtml(approval.description)}</p>
-        <div class="approval-meta">
-          <span>tool: ${approval.tool_name}</span>
-          <span>risk: ${approval.risk_level}</span>
-          ${approval.snap_id ? `<span>snapshot: ${approval.snap_id}</span>` : ''}
-        </div>
-        <div class="approval-actions">
-          <button class="btn-approve" onclick="submitApproval(true)">Approve</button>
-          <button class="btn-deny" onclick="submitApproval(false)">Cancel</button>
-        </div>`;
-      msgWrap.insertBefore(card, msgWrap.lastChild);
-      scrollBottom();
-    }
-
-    function toggleCard(header) {
-      const body = header.nextElementSibling;
-      const tog = header.querySelector('.tool-card-toggle');
-      body.classList.toggle('collapsed');
-      tog.textContent = body.classList.contains('collapsed') ? '▼ show' : '▲ hide';
-    }
-
-    // ── Send / receive ──────────────────────────────────
-
-    function send(text) { document.getElementById('chat-input').value = text; sendMessage(); }
-
-    async function sendMessage() {
-      const input = document.getElementById('chat-input');
-      const text = input.value.trim();
-      if (!text || isThinking) return;
-      if (!sessionId) {
+    try {
+      let res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+      if (res.status === 404) {
         await newSession();
-        if (!sessionId) { alert('Could not create session. Try refreshing.'); return; }
-      }
-
-      input.value = '';
-      autoResize(input);
-      setThinking(true);
-      appendUserMsg(text);
-
-      const msgWrap = createBuddyMsg();
-      _textBubble = null;
-
-      try {
-        let res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
+        res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({message: text})
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text }),
         });
-        // Session lost (pod restart / deploy) — auto-recover transparently
-        if (res.status === 404) {
-          await newSession();
-          res = await fetch(`/buddy/sessions/${sessionId}/chat`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({message: text})
-          });
-        }
-        await streamEvents(res, msgWrap);
-      } catch(e) {
-        appendText(msgWrap, 'Connection error: ' + e.message);
-      } finally {
-        setThinking(false);
-        _textBubble = null;
       }
+      await streamEvents(res, row);
+    } catch(e) {
+      appendText(row, '⚠️ Connection error: ' + e.message);
+    } finally {
+      setThinking(false);
+      _currentTextEl  = null;
+      _currentRawText = '';
     }
+  }
 
-    async function submitApproval(approved) {
-      document.getElementById('approval-card')?.remove();
-      setThinking(true);
+  async function submitApproval(approved) {
+    document.getElementById('approval-card')?.remove();
+    setThinking(true);
 
-      const msgWrap = createBuddyMsg();
-      _textBubble = null;
+    const row = createBuddyRow();
+    _currentTextEl  = null;
+    _currentRawText = '';
 
-      try {
-        const res = await fetch(`/buddy/sessions/${sessionId}/approve`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({approved, reason: ''})
-        });
-        await streamEvents(res, msgWrap);
-      } catch(e) {
-        appendText(msgWrap, 'Error: ' + e.message);
-      } finally {
-        setThinking(false);
-        _textBubble = null;
-      }
+    try {
+      const res = await fetch(`/buddy/sessions/${sessionId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved, reason: '' }),
+      });
+      await streamEvents(res, row);
+    } catch(e) {
+      appendText(row, '⚠️ Error: ' + e.message);
+    } finally {
+      setThinking(false);
+      _currentTextEl  = null;
+      _currentRawText = '';
     }
+  }
 
-    async function streamEvents(response, msgWrap) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
+  async function streamEvents(response, row) {
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
 
-      while (true) {
-        const {value, done} = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, {stream: true});
-        const parts = buf.split('\n\n');
-        buf = parts.pop();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
 
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data:')) continue;
-          const raw = line.slice(5).trim();
-          if (!raw) continue;
-          let event;
-          try { event = JSON.parse(raw); } catch { continue; }
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        let event;
+        try { event = JSON.parse(raw); } catch { continue; }
 
-          if (event.type === 'text')       appendText(msgWrap, event.content);
-          if (event.type === 'tool_call')  appendToolCard(msgWrap, event);
-          if (event.type === 'tool_result')appendToolCard(msgWrap, event);
-          if (event.type === 'approval_required') appendApprovalCard(msgWrap, event.approval);
-          if (event.type === 'error')      appendText(msgWrap, '⚠️ ' + event.content);
-          if (event.type === 'done')       break;
+        switch (event.type) {
+          case 'intent':
+            showIntentBadge(event.intent, event.confidence);
+            break;
+          case 'text':
+            if (event.content) appendText(row, event.content);
+            break;
+          case 'tool_call':
+          case 'tool_result':
+            appendToolPill(row, event);
+            break;
+          case 'approval_required':
+            appendApprovalCard(row, event.approval);
+            break;
+          case 'error':
+            appendText(row, '\n\n⚠️ **Error:** ' + event.content);
+            break;
+          case 'done':
+            break;
         }
       }
-      // Remove typing indicator if still there
-      msgWrap.querySelector('#typing-bubble')?.remove();
     }
+    // Remove any lingering typing indicator
+    row.querySelector('.typing-dots')?.remove();
+    row.querySelector('#typing-inner')?.remove();
+  }
 
-    // ── Helpers ──────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────
+  function setThinking(v) {
+    isThinking = v;
+    document.getElementById('send-btn').disabled = v;
+    const dot  = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    dot.className = 'status-dot' + (v ? ' thinking' : '');
+    text.textContent = v ? 'Thinking…' : 'Ready';
+  }
 
-    function setThinking(v) {
-      isThinking = v;
-      document.getElementById('send-btn').disabled = v;
-      document.getElementById('status-dot').className = 'status-dot' + (v ? ' thinking' : '');
-    }
+  function scrollBottom() {
+    const msgs = document.getElementById('messages');
+    msgs.scrollTop = msgs.scrollHeight;
+  }
 
-    function scrollBottom() {
-      const msgs = document.getElementById('messages');
-      msgs.scrollTop = msgs.scrollHeight;
-    }
+  function nowStr() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
-    function nowStr() {
-      return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    }
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
-    function escHtml(s) {
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
+  function onKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
 
-    function onKey(e) {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-    }
-
-    function autoResize(el) {
-      el.style.height = 'auto';
-      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-    }
-  </script>
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+</script>
 </body>
 </html>
