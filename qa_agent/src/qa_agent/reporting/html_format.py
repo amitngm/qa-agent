@@ -32,6 +32,7 @@ def _esc(value: Any) -> str:
 def render_html(report: QaReport, *, title: Optional[str] = None) -> str:
     """Produce a self-contained HTML document."""
     t = title or "QA run report"
+    ext = dict(report.extensions) if report.extensions else {}
     parts: list[str] = [
         "<!DOCTYPE html>",
         "<html lang=\"en\">",
@@ -40,18 +41,26 @@ def render_html(report: QaReport, *, title: Optional[str] = None) -> str:
         "<style>",
         "body{font-family:system-ui,Segoe UI,sans-serif;margin:1.5rem;line-height:1.45;color:#1a1a1a;}",
         "h1,h2{font-weight:600;}",
+        "h3{font-weight:600;margin-top:1rem;}",
         "table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:0.9rem;}",
         "th,td{border:1px solid #ccc;padding:0.4rem 0.6rem;text-align:left;vertical-align:top;}",
         "th{background:#f0f0f0;}",
-        ".pass{color:#0d5f2b;}.fail{color:#a40000;}.partial{color:#8a5b00;}.skipped{color:#555;}",
+        ".pass{color:#0d5f2b;font-weight:600;}.fail{color:#a40000;font-weight:600;}.partial{color:#8a5b00;font-weight:600;}.skipped{color:#555;}",
+        ".warn{color:#8a5b00;font-weight:600;}",
         ".meta{color:#555;font-size:0.85rem;}",
+        ".badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:0.8rem;font-weight:600;}",
+        ".badge-pass{background:#d4edda;color:#155724;}.badge-fail{background:#f8d7da;color:#721c24;}",
+        ".badge-warn{background:#fff3cd;color:#856404;}.badge-skip{background:#e9ecef;color:#555;}",
         "pre{background:#f6f8fa;padding:0.75rem;overflow:auto;max-height:24rem;}",
+        "details{margin:0.4rem 0;}summary{cursor:pointer;font-weight:600;}",
         "</style>",
         "</head>",
         "<body>",
         f"<h1>{_esc(t)}</h1>",
         _section_run(report.run),
         _section_conclusion(report.conclusion),
+        _section_login_validation(ext),
+        _section_features_validation(ext),
         _section_failure_taxonomy(report),
         _section_steps(report.steps),
         _section_failures(report.failure_categories),
@@ -62,6 +71,155 @@ def render_html(report: QaReport, *, title: Optional[str] = None) -> str:
         "</html>",
     ]
     return "\n".join(parts)
+
+
+def _badge(label: str, cls: str) -> str:
+    return f'<span class="badge badge-{cls}">{_esc(label)}</span>'
+
+
+def _section_login_validation(ext: dict) -> str:
+    ae = ext.get("auto_explore_summary") or {}
+    sa = ext.get("step_assertions") or {}
+    if not ae and not sa:
+        return ""
+
+    blocks: list[str] = ["<h2>Login &amp; Explore Summary</h2>", "<table>"]
+    login_ok = ae.get("login_ok")
+    login_detail = ae.get("login_detail") or ""
+    login_strategy = ae.get("login_strategy") or "—"
+    target_url = ae.get("target_url") or "—"
+    pages_visited = ae.get("pages_visited", "—")
+    pages_discovered = ae.get("pages_discovered", "—")
+    explore_mode = ae.get("explore_mode") or "—"
+    selected_features = ae.get("selected_features") or []
+
+    if login_ok is True:
+        login_badge = _badge("PASS", "pass")
+    elif login_ok is False:
+        login_badge = _badge("FAIL", "fail")
+    else:
+        login_badge = _badge("N/A", "skip")
+
+    blocks.append(f"<tr><th>Target URL</th><td>{_esc(target_url)}</td></tr>")
+    blocks.append(f"<tr><th>Login strategy</th><td>{_esc(login_strategy)}</td></tr>")
+    blocks.append(f"<tr><th>Login result</th><td>{login_badge} {_esc(login_detail)}</td></tr>")
+    blocks.append(f"<tr><th>Explore mode</th><td>{_esc(explore_mode)}</td></tr>")
+    if selected_features:
+        blocks.append(f"<tr><th>Selected features</th><td>{_esc(', '.join(selected_features))}</td></tr>")
+    blocks.append(f"<tr><th>Pages visited</th><td>{_esc(pages_visited)}</td></tr>")
+    blocks.append(f"<tr><th>Pages discovered</th><td>{_esc(pages_discovered)}</td></tr>")
+
+    assertions = sa.get("assertions") or []
+    if assertions:
+        rows = ["<tr><th>Check</th><th>Result</th><th>Detail</th></tr>"]
+        for a in assertions:
+            badge = _badge("PASS", "pass") if a.get("passed") else _badge("FAIL", "fail")
+            rows.append(
+                f"<tr><td>{_esc(a.get('check',''))}</td>"
+                f"<td>{badge}</td>"
+                f"<td class='meta'>{_esc(a.get('detail',''))}</td></tr>"
+            )
+        blocks.append("</table><h3>Step assertions</h3><table>" + "\n".join(rows))
+
+    blocks.append("</table>")
+    return "\n".join(blocks)
+
+
+def _section_features_validation(ext: dict) -> str:
+    pv = ext.get("page_validation") or {}
+    if not pv or pv.get("status") == "skipped":
+        reason = pv.get("skip_reason", "no page validation data")
+        return f"<h2>Feature Validation</h2><p class='meta'>Skipped: {_esc(reason)}</p>"
+
+    pages_total = pv.get("pages_total", 0)
+    pages_passed = pv.get("pages_passed", 0)
+    pages_failed = pv.get("pages_failed", 0)
+    pages_warned = pv.get("pages_warned", 0)
+    checks_run = pv.get("checks_run", 0)
+    checks_passed = pv.get("checks_passed", 0)
+    rules = pv.get("rules_applied") or []
+    features = pv.get("features") or []
+    untagged = pv.get("untagged_pages") or []
+
+    blocks: list[str] = ["<h2>Feature Validation</h2>"]
+
+    # Summary row
+    overall_badge = _badge("FAIL", "fail") if pv.get("failed") else _badge("PASS", "pass")
+    blocks.append("<table>")
+    blocks.append(f"<tr><th>Overall</th><td>{overall_badge}</td></tr>")
+    blocks.append(f"<tr><th>Pages total</th><td>{_esc(pages_total)}</td></tr>")
+    blocks.append(f"<tr><th>Pages passed</th><td><span class='pass'>{_esc(pages_passed)}</span></td></tr>")
+    blocks.append(f"<tr><th>Pages failed</th><td><span class='fail'>{_esc(pages_failed)}</span></td></tr>")
+    blocks.append(f"<tr><th>Pages with warnings</th><td><span class='warn'>{_esc(pages_warned)}</span></td></tr>")
+    blocks.append(f"<tr><th>Checks run / passed</th><td>{_esc(checks_run)} / {_esc(checks_passed)}</td></tr>")
+    blocks.append(f"<tr><th>Rules applied</th><td>{_esc(', '.join(rules))}</td></tr>")
+    blocks.append("</table>")
+
+    # Per-feature breakdown
+    if features:
+        blocks.append("<h3>Per-feature breakdown</h3>")
+        frows = [
+            "<tr>"
+            "<th>Feature</th><th>Pages total</th><th>Passed</th>"
+            "<th>Failed</th><th>Warned</th><th>Details</th>"
+            "</tr>"
+        ]
+        for fg in features:
+            fname = fg.get("feature", "—")
+            ft = fg.get("pages_total", 0)
+            fp = fg.get("pages_passed", 0)
+            ff = fg.get("pages_failed", 0)
+            fw = fg.get("pages_warned", 0)
+            badge = _badge("FAIL", "fail") if ff > 0 else (_badge("WARN", "warn") if fw > 0 else _badge("PASS", "pass"))
+            # Build collapsible page list
+            pages = fg.get("pages") or []
+            detail_html = ""
+            if pages:
+                page_rows = ["<table style='margin:0;font-size:0.82rem;'>",
+                             "<tr><th>URL</th><th>Result</th><th>Errors / Warnings</th></tr>"]
+                for pg in pages:
+                    pg_badge = _badge("FAIL", "fail") if not pg.get("passed") else (
+                        _badge("WARN", "warn") if pg.get("has_warnings") else _badge("PASS", "pass")
+                    )
+                    err_warn = "; ".join((pg.get("errors") or []) + (pg.get("warnings") or []))
+                    page_rows.append(
+                        f"<tr><td>{_esc(pg.get('url',''))}</td>"
+                        f"<td>{pg_badge}</td>"
+                        f"<td class='meta'>{_esc(err_warn or '—')}</td></tr>"
+                    )
+                page_rows.append("</table>")
+                detail_html = (
+                    "<details><summary>Show pages</summary>"
+                    + "\n".join(page_rows)
+                    + "</details>"
+                )
+            frows.append(
+                "<tr>"
+                f"<td><strong>{_esc(fname)}</strong></td>"
+                f"<td>{_esc(ft)}</td>"
+                f"<td class='pass'>{_esc(fp)}</td>"
+                f"<td class='fail'>{_esc(ff)}</td>"
+                f"<td class='warn'>{_esc(fw)}</td>"
+                f"<td>{badge} {detail_html}</td>"
+                "</tr>"
+            )
+        blocks.append("<table>\n" + "\n".join(frows) + "\n</table>")
+
+    # Untagged pages
+    if untagged:
+        blocks.append(f"<h3>Untagged pages ({len(untagged)})</h3>")
+        urows = ["<tr><th>URL</th><th>Result</th><th>Errors</th></tr>"]
+        for pg in untagged:
+            pg_badge = _badge("FAIL", "fail") if not pg.get("passed") else _badge("PASS", "pass")
+            errors = "; ".join(pg.get("errors") or [])
+            urows.append(
+                f"<tr><td>{_esc(pg.get('url',''))}</td>"
+                f"<td>{pg_badge}</td>"
+                f"<td class='meta'>{_esc(errors or '—')}</td></tr>"
+            )
+        blocks.append("<table>\n" + "\n".join(urows) + "\n</table>")
+
+    return "\n".join(blocks)
 
 
 def _section_run(run: RunSummary) -> str:

@@ -847,7 +847,8 @@
           placeholder="Ask anything — investigate an issue, generate test cases, scan logs…"
           rows="1"
           onkeydown="onKey(event)"
-          oninput="autoResize(this)"></textarea>
+          oninput="autoResize(this)"
+          onpaste="setTimeout(()=>autoResize(this),0)"></textarea>
         <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">▶</button>
       </div>
       <div class="input-hint">Enter to send · Shift+Enter for new line</div>
@@ -1878,6 +1879,26 @@
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   }
+
+  // Redirect clipboard paste to chat input when no other input is focused.
+  document.addEventListener('paste', function(e) {
+    const active = document.activeElement;
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    const isOtherInput = active && active !== input &&
+      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+    if (isOtherInput) return;
+    if (active === input) return; // already handled natively
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text) return;
+    input.focus();
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    input.value = input.value.slice(0, start) + text + input.value.slice(end);
+    input.selectionStart = input.selectionEnd = start + text.length;
+    setTimeout(() => autoResize(input), 0);
+  });
 </script>
 </body>
 </html>

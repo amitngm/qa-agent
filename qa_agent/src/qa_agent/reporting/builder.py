@@ -322,6 +322,30 @@ def build_report(
                 )
             )
 
+    # Lift page_validation and auto_explore summary into extensions so the HTML
+    # renderer can produce a features section and a login/explore summary.
+    page_val = (meta.get("validator") or {}).get("page_validation")
+    if isinstance(page_val, dict) and page_val:
+        ext_base["page_validation"] = page_val
+
+    ae_raw = (meta.get("executor") or {}).get("auto_explore_ui")
+    if ae_raw is not None:
+        if hasattr(ae_raw, "model_dump"):
+            ae_dict = ae_raw.model_dump(mode="json")
+        elif isinstance(ae_raw, dict):
+            ae_dict = ae_raw
+        else:
+            ae_dict = None
+        if isinstance(ae_dict, dict):
+            # Exclude the full visited-pages list to keep extensions compact.
+            ext_base["auto_explore_summary"] = {
+                k: v for k, v in ae_dict.items() if k != "visited"
+            }
+
+    step_assertions = (meta.get("validator") or {}).get("step_assertions")
+    if isinstance(step_assertions, dict) and step_assertions:
+        ext_base["step_assertions"] = step_assertions
+
     failed = sum(1 for x in steps_out if x.pass_fail == PassFail.FAIL)
     skipped = sum(1 for x in steps_out if x.pass_fail == PassFail.SKIPPED)
     total = len(steps_out)
