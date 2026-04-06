@@ -66,7 +66,7 @@ class SelfCheck:
 
         # Release validation: always needs real evidence
         if intent == "RELEASE_VALIDATION":
-            has_real_sources = not rag_is_stub and rag_confidence >= 0.6
+            has_real_sources = not rag_is_stub and rag_confidence >= 0.5
             if not has_real_sources:
                 return SelfCheckResult(
                     decision=INSUFFICIENT_EVIDENCE,

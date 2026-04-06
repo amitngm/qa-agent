@@ -158,6 +158,22 @@ def chat(session_id: str, req: ChatRequest):
         user_query=req.message,
     )
 
+    # Record full request lifecycle for post-incident traceability
+    _audit.record_request(
+        session_id=session.session_id,
+        user=session.user,
+        message=req.message,
+        intent=intent_result.intent,
+        intent_confidence=intent_result.confidence,
+        features=intent_result.features,
+        environment=intent_result.environment,
+        urgency=intent_result.urgency,
+        rag_confidence=rag_result.confidence,
+        rag_sources=rag_result.sources_used,
+        self_check_decision=check.decision,
+        system_prompt_key=intent_result.intent,  # maps 1:1 to _INTENT_TO_PROMPT key
+    )
+
     log.info(
         "intent=%s confidence=%s features=%s urgency=%s",
         intent_result.intent,
@@ -174,8 +190,20 @@ def chat(session_id: str, req: ChatRequest):
             try:
                 # Emit intent event so UI can show what mode buddy is in
                 q.put(f"data: {json.dumps({'type': 'intent', 'intent': intent_result.intent, 'confidence': intent_result.confidence, 'features': intent_result.features, 'urgency': intent_result.urgency, 'environment': intent_result.environment})}\n\n")
+
+                # Issue 2: clarification gate — stop before LLM if query is ambiguous
+                if intent_result.ambiguous and intent_result.clarification_needed:
+                    q.put(f"data: {json.dumps({'type': 'clarification', 'question': intent_result.clarification_needed, 'detected_intent': intent_result.intent, 'detected_features': intent_result.features})}\n\n")
+                    return
+
+                # Issue 1: SelfCheck gate — block unsafe answers, no brain.chat() call
+                if check.decision == "INSUFFICIENT_EVIDENCE":
+                    q.put(f"data: {json.dumps({'type': 'insufficient_evidence', 'message': check.caveat_message, 'missing': check.missing, 'intent': intent_result.intent})}\n\n")
+                    return
+
                 if check.caveat_message:
                     q.put(f"data: {json.dumps({'type': 'caveat', 'decision': check.decision, 'message': check.caveat_message, 'missing': check.missing})}\n\n")
+
                 for event in _brain.chat(session, req.message, system_prompt_override=system_prompt):
                     q.put(f"data: {json.dumps(event)}\n\n")
             except Exception as exc:

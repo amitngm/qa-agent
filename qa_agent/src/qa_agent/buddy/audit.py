@@ -43,6 +43,44 @@ class AuditLog:
         except OSError as exc:
             log.warning("audit write failed: %s", exc)
 
+    def record_request(
+        self,
+        session_id: str,
+        user: str,
+        message: str,
+        intent: str,
+        intent_confidence: str,
+        features: list,
+        environment: str,
+        urgency: str,
+        rag_confidence: float,
+        rag_sources: list,
+        self_check_decision: str,
+        system_prompt_key: str,
+    ) -> None:
+        """Record one entry per user request — the full reasoning lifecycle."""
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "event": "request",
+            "session_id": session_id,
+            "user": user,
+            "message_preview": message[:120],
+            "intent": intent,
+            "intent_confidence": intent_confidence,
+            "features": features,
+            "environment": environment,
+            "urgency": urgency,
+            "rag_confidence": rag_confidence,
+            "rag_sources": rag_sources,
+            "self_check_decision": self_check_decision,
+            "system_prompt_key": system_prompt_key,
+        }
+        try:
+            with open(self._path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, default=str) + "\n")
+        except OSError as exc:
+            log.warning("audit write failed: %s", exc)
+
     def recent(self, n: int = 50) -> list[dict]:
         try:
             lines = self._path.read_text(encoding="utf-8").splitlines()

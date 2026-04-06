@@ -39,6 +39,7 @@ class RAGResult:
     sources_used: list[str] = field(default_factory=list)   # e.g. ["domain:vpc", "domain:subnet"]
     confidence: float = 0.0                   # 0.0–1.0 retrieval quality score
     is_stub: bool = True                      # True until real vector store is wired
+    stub_sources_needed: list[str] = field(default_factory=list)  # sources that WOULD improve this answer
 
 
 class RAGEngine:
@@ -78,27 +79,32 @@ class RAGEngine:
                 parts.append(ctx)
                 sources.append(f"domain:{feature}")
 
+        # Sources this intent needs from a real knowledge store (not yet wired)
+        sources_needed = _INTENT_SOURCES.get(intent_result.intent.upper(), [])
+
         if not parts:
             return RAGResult(
                 context="(no domain context — feature not recognized in platform taxonomy)",
                 sources_used=[],
-                confidence=0.0,
+                confidence=0.1,   # explicit: no feature match, very low signal
                 is_stub=True,
+                stub_sources_needed=sources_needed,
             )
 
-        suggested = _INTENT_SOURCES.get(intent_result.intent.upper(), [])
-        if suggested:
+        if sources_needed:
             parts.append(
-                f"\nRecommended knowledge sources for {intent_result.intent}: "
-                + ", ".join(suggested)
-                + "\n(not yet connected — wire RAGEngine._retrieve_from_vector_store)"
+                f"\nNote: {intent_result.intent} answers would improve significantly "
+                f"with: {', '.join(sources_needed)} "
+                f"(not yet connected — wire RAGEngine._retrieve_from_vector_store)"
             )
 
         return RAGResult(
             context="\n\n".join(parts),
             sources_used=sources,
-            confidence=0.6,   # domain knowledge is decent but not retrieved
+            # 0.3 = domain taxonomy only, better than nothing but not retrieved evidence
+            confidence=0.3,
             is_stub=True,
+            stub_sources_needed=sources_needed,
         )
 
     def _retrieve_from_vector_store(
