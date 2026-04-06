@@ -15,12 +15,14 @@ from pydantic import BaseModel
 from qa_agent.buddy.audit import AuditLog
 from qa_agent.buddy.brain import Brain
 from qa_agent.buddy.default_registry import build_default_registry
-from qa_agent.buddy.domain.platform import PlatformDomain
+from qa_agent.buddy.domain.platform import PlatformDomain  # noqa: F401 (kept for /tools compat)
 from qa_agent.buddy.intent.router import IntentRouter
 from qa_agent.buddy.permission import PermissionEngine
 from qa_agent.buddy.providers.factory import build_provider
+from qa_agent.buddy.rag.engine import RAGEngine
 from qa_agent.buddy.reasoning.prompts import PromptLibrary
 from qa_agent.buddy.recovery import RecoveryEngine
+from qa_agent.buddy.self_check import SelfCheck
 from qa_agent.buddy.session import SessionStore
 
 log = logging.getLogger("qa_agent.buddy.routes")
@@ -43,6 +45,7 @@ _brain = Brain(
 )
 # Intent router — LLM fallback enabled (uses same provider)
 _intent_router = IntentRouter(provider=_provider)
+_rag_engine = RAGEngine()
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
@@ -140,14 +143,19 @@ def chat(session_id: str, req: ChatRequest):
     session.intent = intent_result.intent
     session.intent_confidence = intent_result.confidence
 
-    # Enrich prompt with domain knowledge for the detected feature
-    domain_ctx = ""
-    if intent_result.primary_feature != "unknown":
-        domain_ctx = PlatformDomain.domain_context(intent_result.primary_feature)
+    # RAG retrieval — currently returns domain knowledge; replace engine internals
+    # to wire a real vector store without changing this call site.
+    rag_result = _rag_engine.retrieve(intent_result, req.message)
+    session.rag_sources = rag_result.sources_used
+    session.rag_confidence = rag_result.confidence
+
+    # Self-check — evaluate evidence sufficiency before answering
+    check = SelfCheck.evaluate(intent_result, rag_result)
 
     system_prompt = PromptLibrary.build(
         **intent_result.to_prompt_vars(),
-        rag_context=domain_ctx,   # domain knowledge acts as RAG until full RAG is wired
+        rag_context=rag_result.context,
+        user_query=req.message,
     )
 
     log.info(
@@ -165,7 +173,9 @@ def chat(session_id: str, req: ChatRequest):
         def _run():
             try:
                 # Emit intent event so UI can show what mode buddy is in
-                q.put(f"data: {json.dumps({'type': 'intent', 'intent': intent_result.intent, 'confidence': intent_result.confidence, 'features': intent_result.features})}\n\n")
+                q.put(f"data: {json.dumps({'type': 'intent', 'intent': intent_result.intent, 'confidence': intent_result.confidence, 'features': intent_result.features, 'urgency': intent_result.urgency, 'environment': intent_result.environment})}\n\n")
+                if check.caveat_message:
+                    q.put(f"data: {json.dumps({'type': 'caveat', 'decision': check.decision, 'message': check.caveat_message, 'missing': check.missing})}\n\n")
                 for event in _brain.chat(session, req.message, system_prompt_override=system_prompt):
                     q.put(f"data: {json.dumps(event)}\n\n")
             except Exception as exc:

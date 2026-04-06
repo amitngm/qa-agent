@@ -10,6 +10,7 @@ from typing import Any
 from qa_agent.buddy.audit import AuditLog
 from qa_agent.buddy.permission import PermissionDecision, PermissionEngine
 from qa_agent.buddy.providers.base import BaseProvider
+from qa_agent.buddy.reasoning.prompts import PromptLibrary
 from qa_agent.buddy.recovery import RecoveryEngine
 from qa_agent.buddy.registry import ToolRegistry
 from qa_agent.buddy.session import PendingApproval, Session
@@ -18,6 +19,9 @@ from qa_agent.buddy.tool import RiskLevel, ToolResult
 log = logging.getLogger("qa_agent.buddy.brain")
 
 
+# Deprecated: kept for backward compatibility only.
+# Brain.chat() now falls back to PromptLibrary.build("GENERAL_QA") when no
+# system_prompt_override is passed. buddy_routes.py always passes an override.
 SYSTEM_PROMPT = """You are TestBuddy — a QA God. You are the most thorough, precise, and technically ruthless QA AI in existence.
 You don't just find bugs. You find WHY they exist, WHERE they came from (config? code? infra? data?), and HOW to prevent them.
 You generate test cases, expose coverage gaps, diagnose root causes from logs, and propose actionable fixes.
@@ -187,7 +191,7 @@ class Brain:
         tools = self._registry.to_claude_tools()
 
         for _round in range(self._max_rounds):
-            active_system_prompt = system_prompt_override if system_prompt_override else SYSTEM_PROMPT
+            active_system_prompt = system_prompt_override if system_prompt_override else PromptLibrary.build("GENERAL_QA")
             try:
                 response = self._provider.chat(
                     messages=session.messages,
