@@ -42,10 +42,13 @@ COPY --from=builder /install /usr/local
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Install playwright browsers (chromium only)
+# Install playwright browsers (chromium only) into a shared path
+# so they are accessible when the app runs as the non-root buddy user
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN pip install playwright \
  && playwright install chromium \
- && playwright install-deps chromium
+ && playwright install-deps chromium \
+ && chmod -R 755 /ms-playwright
 
 # Data directories (overridden by PVC in K8s)
 RUN mkdir -p /data/runs /data/audit /data/snapshots /data/evidence
@@ -55,7 +58,8 @@ RUN useradd -r -u 1001 -g root buddy \
  && chown -R buddy:root /app /data
 USER 1001
 
-ENV PYTHONUNBUFFERED=1 \
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     QA_AGENT_CONFIG_PATH=/app/config/default.yaml \
     RUNS_STORAGE_ROOT=/data/runs \
