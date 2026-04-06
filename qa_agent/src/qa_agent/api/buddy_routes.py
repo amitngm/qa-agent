@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import threading
-import time
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
@@ -15,7 +14,6 @@ from pydantic import BaseModel
 from qa_agent.buddy.audit import AuditLog
 from qa_agent.buddy.brain import Brain
 from qa_agent.buddy.default_registry import build_default_registry
-from qa_agent.buddy.domain.platform import PlatformDomain  # noqa: F401 (kept for /tools compat)
 from qa_agent.buddy.intent.router import IntentRouter
 from qa_agent.buddy.permission import PermissionEngine
 from qa_agent.buddy.providers.factory import build_provider
@@ -198,7 +196,7 @@ def chat(session_id: str, req: ChatRequest):
 
                 # Issue 1: SelfCheck gate — block unsafe answers, no brain.chat() call
                 if check.decision == "INSUFFICIENT_EVIDENCE":
-                    q.put(f"data: {json.dumps({'type': 'insufficient_evidence', 'message': check.caveat_message, 'missing': check.missing, 'intent': intent_result.intent})}\n\n")
+                    q.put(f"data: {json.dumps({'type': 'insufficient_evidence', 'message': check.caveat_message, 'missing': check.missing, 'intent': intent_result.intent, 'stub_sources_needed': rag_result.stub_sources_needed, 'guidance': 'Attach the listed evidence sources and resend your query to get a grounded answer.'})}\n\n")
                     return
 
                 if check.caveat_message:
