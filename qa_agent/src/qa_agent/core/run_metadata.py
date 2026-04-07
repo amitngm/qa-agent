@@ -71,6 +71,7 @@ class AssertionsSummary(BaseModel):
     checks_run: int = 0
     checks_passed: int = 0
     failed: Optional[bool] = None
+    assertions: List[Any] = Field(default_factory=list)
 
 
 class ValidatorMetadata(BaseModel):
