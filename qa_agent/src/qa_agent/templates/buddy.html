@@ -1319,7 +1319,19 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      let data;
+      const rawText = await res.text();
+      try {
+        data = JSON.parse(rawText);
+      } catch(_) {
+        // Server returned non-JSON (e.g. Starlette plain-text 500)
+        throw new Error(`Server error (HTTP ${res.status}): ${rawText.slice(0, 200)}`);
+      }
+      // FastAPI HTTPException returns {detail: "..."} on error status codes
+      if (!res.ok) {
+        const msg = (data && data.detail) ? String(data.detail) : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
 
       stopProgressAnim(data.status === 'completed' || data.status === 'passed');
       await new Promise(r => setTimeout(r, 600));
@@ -1328,6 +1340,7 @@
       showTestResults(data, url, appName);
     } catch(e) {
       stopProgressAnim(false);
+      _taLastResult = { _error: true, _errorMsg: e.message || String(e), run_id: null };
       await new Promise(r => setTimeout(r, 400));
       document.getElementById('ta-progress').style.display = 'none';
       document.getElementById('ta-results').style.display  = 'block';
@@ -1405,14 +1418,21 @@
   }
 
   function askBuddyAboutResult() {
-    if (!_taLastResult) return;
     switchTab('chat');
-    const summary = _taLastResult.summary || {};
-    const msg = `I just ran an automated test on my application. ` +
-      `Status: ${_taLastResult.status}, Steps: ${_taLastResult.steps?.length || 0}, ` +
-      `Failed: ${summary.failed || 0}. ` +
-      `Run ID: ${_taLastResult.run_id}. ` +
-      `Please analyze the results and tell me what issues were found and what test cases I should write.`;
+    let msg;
+    if (!_taLastResult || _taLastResult._error) {
+      const errMsg = (_taLastResult && _taLastResult._errorMsg) || 'unknown error';
+      msg = `I just ran an automated test on my application but it failed to complete. ` +
+        `Error: ${errMsg}. ` +
+        `Can you help me understand what went wrong and how to fix it?`;
+    } else {
+      const summary = _taLastResult.summary || {};
+      msg = `I just ran an automated test on my application. ` +
+        `Status: ${_taLastResult.status}, Steps: ${_taLastResult.steps?.length || 0}, ` +
+        `Failed: ${summary.failed || 0}. ` +
+        `Run ID: ${_taLastResult.run_id}. ` +
+        `Please analyze the results and tell me what issues were found and what test cases I should write.`;
+    }
     document.getElementById('chat-input').value = msg;
     sendMessage();
   }

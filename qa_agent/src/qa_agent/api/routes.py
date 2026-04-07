@@ -56,16 +56,23 @@ async def trigger_run(
     orchestrator: QAOrchestrator = Depends(get_orchestrator),
     agent_config: AgentConfig = Depends(get_agent_config),
 ) -> RunResponse:
-    body = body or RunRequest()
-    meta = body.metadata
-    if body.run_mode != "auto_explore" and agent_config.suite.flow_keys:
-        ex = meta.executor
-        if ex is None or ex.flow_keys is None:
-            meta = meta.merged({"executor": {"flow_keys": list(agent_config.suite.flow_keys)}})
-    body = body.model_copy(update={"metadata": meta})
-    context, run_config = apply_run_request_to_context(body, agent_config)
-    result = await orchestrator.arun(context=context, config=run_config)
-    return _to_response(result)
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+    try:
+        body = body or RunRequest()
+        meta = body.metadata
+        if body.run_mode != "auto_explore" and agent_config.suite.flow_keys:
+            ex = meta.executor
+            if ex is None or ex.flow_keys is None:
+                meta = meta.merged({"executor": {"flow_keys": list(agent_config.suite.flow_keys)}})
+        body = body.model_copy(update={"metadata": meta})
+        context, run_config = apply_run_request_to_context(body, agent_config)
+        result = await orchestrator.arun(context=context, config=run_config)
+        return _to_response(result)
+    except Exception as exc:
+        _log.exception("POST /run failed")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/health")
